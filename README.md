@@ -1,5 +1,7 @@
 # Snapgrid
 
+[![Tests](https://github.com/smee-dee/snapgrid/actions/workflows/tests.yml/badge.svg)](https://github.com/smee-dee/snapgrid/actions/workflows/tests.yml)
+
 A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on macOS. It places the focused window on a grid using global keyboard shortcuts, and everything is configured in one TOML file.
 
 ## Why Snapgrid?
@@ -56,12 +58,23 @@ SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh
 
 Releases are published on GitHub, and the app updates itself from them:
 
-1. Bump `static let version` in `Sources/snapgrid/CLI.swift`, move the `## [Unreleased]` entries in [`CHANGELOG.md`](CHANGELOG.md) under a new `## [<version>] - <date>` heading, and commit.
-2. Run `SIGN_IDENTITY="Apple Development: …" scripts/release.sh`. The release notes come from that changelog section. It needs the GitHub CLI (`gh auth login`) and `origin` pointing at the GitHub repo. It pushes to `main` on GitHub, builds and signs `Snapgrid-<version>.zip`, and publishes release `v<version>` with the zip attached.
+1. On `main`, bump `static let version` in `Sources/snapgrid/CLI.swift`, move the `## [Unreleased]` entries in [`CHANGELOG.md`](CHANGELOG.md) under a new `## [<version>] - <date>` heading, and commit.
+2. Run `SIGN_IDENTITY="Apple Development: …" scripts/release.sh`. The release notes come from that changelog section. It needs the GitHub CLI (`gh auth login`) and `origin` pointing at the GitHub repo. It pushes to `main` on GitHub, waits for the tests there to pass, builds and signs `Snapgrid-<version>.zip`, and publishes release `v<version>` with the zip attached.
 3. Installed copies notice the release within a day, or right away with menu bar › Check for Updates…. A dot in your accent colour on the menu-bar icon shows that an update is waiting, and a notification (once per version, with an Install and Restart button) announces it. With "Install updates automatically" on (Settings › General, off by default), it installs once the Mac has been idle for 10 minutes, but never while the grid panel is open or Settings has unsaved changes.
 
    <img src="docs/screenshots/update-dialog.png" width="480" alt="Update dialog with release notes and Install and Restart">
  **Install and Restart** downloads the zip and installs it only if it's signed by the same team as the running app. Accessibility permission carries over, and nothing is re-quarantined, so there's no Gatekeeper prompt after the first install.
+
+### Beta versions
+
+To let people try a change before it's released, publish a beta from its branch, usually the one behind a pull request:
+
+1. On the branch, set the version to the next release plus a beta number, e.g. `0.4.0-beta.1` (then `-beta.2`, …), and commit. Keep the changelog entries under `## [Unreleased]`; they become the beta's notes.
+2. Run the same `scripts/release.sh`. For a `-beta.N` version it pushes the branch instead of `main`, waits for its tests, publishes a GitHub *pre-release*, and comments on the branch's pull request with the link.
+3. Testers turn on **Get beta versions** in Settings › General › Updates. Everyone else never sees betas.
+4. When the pull request is merged, release the stable version (`0.4.0`) from `main` as usual. Beta testers get it too, because `0.4.0` is newer than any `0.4.0-beta.N`.
+
+Turning **Get beta versions** off doesn't downgrade anything: the beta stays until a newer stable version comes out. To go back right away, click **Switch to <stable version>** in the same section. It installs the latest stable release after asking first.
 
 Always release with the same certificate. The repo the app checks is written into `Info.plist` at build time: the `origin` remote, or `UPDATE_REPO=owner/repo`. Builds without one simply have no update button. `scripts/build-app.sh --zip` alone writes the zip without publishing it. Don't commit binaries to git: they bloat the history and go stale.
 

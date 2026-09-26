@@ -36,6 +36,19 @@ final class Updater: ObservableObject {
     let currentVersion = AppVersion(CLI.version)!
     private var timer: Timer?
 
+    static let channelKey = "updateChannel"
+    /// The latest stable release, offered while a beta runs on the stable channel.
+    @Published private(set) var stableFallback: Release?
+
+    var channel: UpdateChannel {
+        get { UserDefaults.standard.string(forKey: Self.channelKey).flatMap(UpdateChannel.init) ?? .stable }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue.rawValue, forKey: Self.channelKey)
+            Task { await check(userInitiated: true) }
+        }
+    }
+
     var automatic: Bool {
         get { UserDefaults.standard.object(forKey: Self.automaticKey) as? Bool ?? true }
         set {
@@ -89,7 +102,7 @@ final class Updater: ObservableObject {
     }
 
     func check(userInitiated: Bool) async {
-        guard let repo, let url = GitHubReleases.latestURL(repo: repo) else {
+        guard let repo, let url = GitHubReleases.listURL(repo: repo) else {
             state = .failed("This build has no update source (it was built without a GitHub repo).")
             onStateChange()
             return
@@ -104,17 +117,25 @@ final class Updater: ObservableObject {
             if let problem = GitHubReleases.failure(status: (response as? HTTPURLResponse)?.statusCode ?? 0) {
                 throw Failure(message: problem)
             }
-            let release = try GitHubReleases.parseLatest(data)
+            let releases = try GitHubReleases.parseList(data)
             UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
-            state = release.version > currentVersion ? .available(release) : .upToDate
-            if case .available(let found) = state { onFound(found, userInitiated) }
+            stableFallback = UpdatePolicy.stableFallback(from: releases, channel: channel, current: currentVersion)
+            if let release = UpdatePolicy.update(from: releases, channel: channel, current: currentVersion) {
+                state = .available(release)
+                onFound(release, userInitiated)
+            } else if releases.isEmpty {
+                throw Failure(message: "No release has been published yet.")
+            } else {
+                state = .upToDate
+            }
         } catch {
             state = userInitiated ? .failed(Self.message(error)) : .idle
         }
         onStateChange()
     }
 
-    func install(_ release: Release) async {
+    /// `downgrade` is for switching from a beta back to the latest stable release.
+    func install(_ release: Release, downgrade: Bool = false) async {
         state = .installing
         onStateChange()
         do {
@@ -123,7 +144,7 @@ final class Updater: ObservableObject {
             try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
             try Self.run("/usr/bin/ditto", ["-x", "-k", zip.path, work.path])
             let newApp = work.appendingPathComponent("Snapgrid.app")
-            try verify(newApp)
+            try verify(newApp, release: release, downgrade: downgrade)
             let target = Bundle.main.bundleURL
             _ = try FileManager.default.replaceItemAt(target, withItemAt: newApp)
             try? FileManager.default.removeItem(at: work)
@@ -134,7 +155,7 @@ final class Updater: ObservableObject {
         }
     }
 
-    private func verify(_ app: URL) throws {
+    private func verify(_ app: URL, release: Release, downgrade: Bool) throws {
         guard Bundle.main.bundleURL.pathExtension == "app" else {
             throw Failure(message: "Only the installed Snapgrid.app can update itself.")
         }
@@ -153,9 +174,9 @@ final class Updater: ObservableObject {
         guard status == errSecSuccess else {
             throw Failure(message: "The download isn't signed by the same developer as this copy (error \(status)).")
         }
-        guard UpdatePolicy.isNewer(bundleVersion: Bundle(url: app)?.infoDictionary?["CFBundleShortVersionString"] as? String,
-                                   than: currentVersion) else {
-            throw Failure(message: "The download isn't newer than the installed version.")
+        guard UpdatePolicy.accepts(bundleVersion: Bundle(url: app)?.infoDictionary?["CFBundleShortVersionString"] as? String,
+                                   for: release, current: currentVersion, allowDowngrade: downgrade) else {
+            throw Failure(message: "The download isn't version \(release.version), or isn't newer than the installed version.")
         }
     }
 

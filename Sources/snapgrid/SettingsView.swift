@@ -418,11 +418,35 @@ private struct GeneralTab: View {
 
 private struct UpdatesSection: View {
     @ObservedObject var updater: Updater
+    @State private var confirmStable: Release?
 
     var body: some View {
         Section("Updates") {
-            LabeledContent("Installed version") { Text(updater.currentVersion.description) }
+            LabeledContent("Installed version") {
+                Text(updater.currentVersion.description + (updater.currentVersion.isPrerelease ? " (beta)" : ""))
+            }
             if updater.repo != nil {
+                Toggle(isOn: Binding(get: { updater.channel == .beta },
+                                     set: { updater.channel = $0 ? .beta : .stable })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Get beta versions")
+                        Text(updater.channel == .beta
+                             ? "You get test versions of upcoming features. They can have bugs; report them on GitHub."
+                             : updater.currentVersion.isPrerelease
+                                ? "You'll move to the next stable version when it's out. It's newer than this beta."
+                                : "Test upcoming features before they're released.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if let stable = updater.stableFallback {
+                    HStack {
+                        Text("Don't want to wait? Stable \(stable.version.description) is available now.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Switch to \(stable.version.description)") { confirmStable = stable }
+                            .disabled(updater.state == .installing)
+                    }
+                }
                 Toggle("Check for updates automatically", isOn: $updater.automatic)
                 Toggle(isOn: $updater.autoInstall) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -444,6 +468,15 @@ private struct UpdatesSection: View {
                         .disabled(updater.repo == nil || updater.state == .checking || updater.state == .installing)
                 }
             }
+        }
+        .confirmationDialog("Switch to Snapgrid \(confirmStable?.version.description ?? "")?",
+                            isPresented: Binding(get: { confirmStable != nil }, set: { if !$0 { confirmStable = nil } })) {
+            Button("Install and Restart") {
+                if let release = confirmStable { Task { await updater.install(release, downgrade: true) } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This replaces beta \(updater.currentVersion.description) with the older stable version. If you used a setting that only the beta knows, the stable version reports a config error until you remove it.")
         }
     }
 

@@ -4,6 +4,9 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Added
+- Beta versions: turn on "Get beta versions" in Settings › General › Updates to try upcoming features before they're released. Turning it off keeps the beta until the next stable version, or you can switch back to the latest stable version right away.
+
 ## [0.3.1] - 2026-09-26
 
 ### Added
