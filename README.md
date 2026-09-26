@@ -1,0 +1,93 @@
+# GridKeys
+
+A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on macOS. It places the focused window on a grid using global keyboard shortcuts, and everything is configured in one TOML file.
+
+- Native arm64 (Apple Silicon), macOS 13 or later, built for macOS 27+. Divvy is Intel-only and stops working when Rosetta goes away in macOS 28.
+- Only Apple frameworks are used: AppKit, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 1,000 lines you can read.
+- Divvy-style grid shortcuts, with a grid size per shortcut, an optional gap, and moving windows to the next or previous display.
+- Divvy's *local* shortcuts (which work while the Divvy panel is open) map to a **leader key**: press it, then a plain key such as `l`, within a few seconds.
+- Imports your existing Divvy shortcuts with `gridkeys import-divvy`.
+- Runs as a menu-bar item (no Dock icon) with Reload, Edit Config, Launch at Login and Quit. The config reloads automatically when you save it.
+
+## Install
+
+You need Xcode or the Command Line Tools (for `swift`).
+
+```bash
+git clone <this repo> gridkeys && cd gridkeys
+swift test                                 # optional: run the unit tests
+SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh --install
+```
+
+`--install` copies `GridKeys.app` to `/Applications`, links the `gridkeys` CLI into `/opt/homebrew/bin` (or `~/.local/bin`), and launches the app.
+
+- **Accessibility:** On first launch, macOS asks for Accessibility access. This is required to move other apps' windows. Enable GridKeys under System Settings › Privacy & Security › Accessibility.
+- **Signing:** macOS ties that permission to the code signature. With a stable `SIGN_IDENTITY`, the grant survives rebuilds. Without one, the script signs ad-hoc and you must re-grant after every rebuild. A free Apple Development certificate (Xcode › Settings › Accounts) is enough. Run `security find-identity -v -p codesigning` to list yours. Notarization is only needed if you distribute the app to other people.
+- **Launch at login:** Use the menu-bar item's "Launch at Login" option, which uses `SMAppService`.
+
+## Migrate from Divvy
+
+On the Mac where Divvy is set up:
+
+```bash
+gridkeys import-divvy            # reads Divvy's prefs, writes ~/.config/gridkeys/config.toml
+gridkeys check                   # review what was imported
+gridkeys reload                  # or just save the file; the app picks it up
+```
+
+- **Where it reads from:** The importer reads `defaults export com.mizage.direct.Divvy` (the direct download) or `com.mizage.Divvy` (the App Store build). To convert a plist copied from another machine, use `--plist FILE`. To preview without writing anything, use `--output -`.
+- **What it converts:**
+  - Each Divvy shortcut becomes a `[[shortcut]]` entry with the same grid size, selection and key.
+  - Keys are named according to your current keyboard layout.
+  - Divvy local shortcuts get `global = false`, and a `leader` is added. Set the leader to the hotkey you used to open the Divvy panel.
+- **What it leaves commented out, with a `# NOTE:`:** disabled shortcuts, duplicate keys, and selections on a subdivided grid that need checking.
+- **Privacy:** Divvy's preferences also contain your licence key. The importer only lists the names of other settings and never copies their values.
+
+## Config reference
+
+`~/.config/gridkeys/config.toml` (or `$XDG_CONFIG_HOME/gridkeys/config.toml`). Run `gridkeys init` to create the starter file shown in [`config.example.toml`](config.example.toml).
+
+```toml
+[settings]
+grid = "6x6"              # default grid, columns x rows
+gap = 0                   # points between windows and around screen edges
+leader = "ctrl+alt+space" # arms local shortcuts (optional)
+leader_timeout = 3        # seconds they stay armed
+
+[[shortcut]]
+name = "Left two thirds"  # optional, shown in `gridkeys check` and error messages
+keys = "ctrl+alt+e"
+grid = "3x1"              # optional, overrides [settings] grid
+cells = "0,0 2x1"         # col,row of top-left cell (0-based), then width x height in cells
+global = true             # default; false = only after the leader key
+
+[[shortcut]]
+keys = "ctrl+alt+cmd+right"
+action = "next-screen"    # or "previous-screen"; keeps relative size and position
+```
+
+- **Keys:** Modifiers are `ctrl`, `alt`/`option`, `shift` and `cmd`, followed by one key: a letter, digit or symbol as labelled on your keyboard, `left` `right` `up` `down`, `return`, `space`, `tab`, `escape`, `delete`, `home`, `end`, `pageup`, `pagedown`, `f1`–`f20`, `pad0`–`pad9`, `plus`, `minus`, or `keycode:<n>` for a raw key code.
+- **Global shortcuts need a modifier** (F-keys excepted), so a plain key is never swallowed system-wide.
+- **Validation:** Mistakes are reported with line numbers. The running app keeps the last good config if a reload fails, and the menu shows the error and any shortcut that macOS refused to register because another app already uses it.
+
+## CLI
+
+```
+gridkeys run [--config PATH]      run in the foreground (logs to stderr; handy for debugging)
+gridkeys check [--config PATH]    validate and list shortcuts
+gridkeys init [--force]           write the starter config
+gridkeys import-divvy [--plist FILE] [--output PATH|-] [--force]
+gridkeys reload                   tell the running app to reload
+```
+
+If `run` is started from a terminal, macOS attributes the Accessibility permission to the terminal app. For daily use, launch `GridKeys.app` instead.
+
+## Layout
+
+```
+Sources/GridKeysCore/   platform-independent: TOML subset parser, config model, key parsing,
+                        grid geometry, Divvy importer (unit-tested, also builds on Linux)
+Sources/gridkeys/       macOS app + CLI: Carbon hotkeys, AX window moves, keyboard layout, menu bar
+Tests/                  XCTest suite for the core
+scripts/build-app.sh    builds and signs GridKeys.app
+```

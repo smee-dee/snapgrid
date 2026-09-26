@@ -1,0 +1,103 @@
+#if os(macOS)
+import AppKit
+import ApplicationServices
+import GridKeysCore
+
+struct ScreenInfo {
+    var frame: Rect
+    var visible: Rect
+}
+
+enum WindowMoverError: Error, CustomStringConvertible {
+    case notTrusted, noWindow, cannotReadFrame, noScreen
+
+    var description: String {
+        switch self {
+        case .notTrusted: return "Accessibility permission not granted"
+        case .noWindow: return "no focused window"
+        case .cannotReadFrame: return "cannot read the window's frame"
+        case .noScreen: return "no screen found"
+        }
+    }
+}
+
+/// Moves the focused window using the Accessibility API. All rects are in AX
+/// coordinates: origin at the top-left of the primary display, y growing downwards.
+enum WindowMover {
+    static func screens() -> [ScreenInfo] {
+        guard let primaryHeight = NSScreen.screens.first?.frame.height else { return [] }
+        func convert(_ r: NSRect) -> Rect {
+            Rect(x: r.minX, y: primaryHeight - r.maxY, width: r.width, height: r.height)
+        }
+        return NSScreen.screens.map { ScreenInfo(frame: convert($0.frame), visible: convert($0.visibleFrame)) }
+    }
+
+    static func perform(_ action: Action, gap: Double) throws {
+        guard AXIsProcessTrusted() else { throw WindowMoverError.notTrusted }
+        guard let app = NSWorkspace.shared.frontmostApplication else { throw WindowMoverError.noWindow }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        guard let window = copyElement(axApp, kAXFocusedWindowAttribute) else { throw WindowMoverError.noWindow }
+        guard let current = frame(of: window) else { throw WindowMoverError.cannotReadFrame }
+
+        let all = screens()
+        guard let index = Geometry.screenIndex(for: current, screens: all.map(\.frame)) else {
+            throw WindowMoverError.noScreen
+        }
+
+        let target: Rect
+        switch action {
+        case .place(let cells, let grid):
+            target = Geometry.frame(for: cells, grid: grid, in: all[index].visible, gap: gap)
+        case .nextScreen, .previousScreen:
+            guard all.count > 1 else { return }
+            let order = Geometry.spatialOrder(all.map(\.frame))
+            let pos = order.firstIndex(of: index)!
+            let step = action == .nextScreen ? 1 : order.count - 1
+            let dest = order[(pos + step) % order.count]
+            target = Geometry.move(current, from: all[index].visible, to: all[dest].visible)
+        }
+        setFrame(window, target, app: axApp)
+    }
+
+    private static func copyElement(_ element: AXUIElement, _ attribute: String) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)
+    }
+
+    static func frame(of window: AXUIElement) -> Rect? {
+        var posRef: CFTypeRef?
+        var sizeRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &posRef) == .success,
+              AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
+              let posRef, let sizeRef else { return nil }
+        var point = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(posRef as! AXValue, .cgPoint, &point),
+              AXValueGetValue(sizeRef as! AXValue, .cgSize, &size) else { return nil }
+        return Rect(x: point.x, y: point.y, width: size.width, height: size.height)
+    }
+
+    private static func setFrame(_ window: AXUIElement, _ rect: Rect, app: AXUIElement) {
+        // Apps with "enhanced user interface" on (set by assistive tools) animate AX
+        // resizes and end up at the wrong size; switch it off for the duration of the move.
+        let enhancedKey = "AXEnhancedUserInterface" as CFString
+        var enhancedRef: CFTypeRef?
+        let wasEnhanced = AXUIElementCopyAttributeValue(app, enhancedKey, &enhancedRef) == .success
+            && (enhancedRef as? Bool) == true
+        if wasEnhanced { AXUIElementSetAttributeValue(app, enhancedKey, kCFBooleanFalse) }
+        defer { if wasEnhanced { AXUIElementSetAttributeValue(app, enhancedKey, kCFBooleanTrue) } }
+
+        var size = CGSize(width: rect.width, height: rect.height)
+        var point = CGPoint(x: rect.x, y: rect.y)
+        guard let sizeValue = AXValueCreate(.cgSize, &size),
+              let pointValue = AXValueCreate(.cgPoint, &point) else { return }
+        // Size, then position, then size again: apps clamp sizes to the current screen,
+        // so a window moving to a different display needs the second resize.
+        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, pointValue)
+        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeValue)
+    }
+}
+#endif
