@@ -36,4 +36,5 @@ Every user-visible change gets a line in `CHANGELOG.md` under `## [Unreleased]`,
 ## Git
 
 - `origin` is GitHub. The `cursor` remote (origin.cursor.com) is retired; don't push to it.
+- `main` is protected: pull requests need the `test` check and one approval. GitHub doesn't let authors approve their own pull requests, so the owner merges with the admin bypass (`gh pr merge <n> --admin`, only when the user asks). Admins may also push to `main` directly, which `release.sh` relies on.
 - Never commit the user's config (`~/.config/snapgrid/`, possibly symlinked into iCloud Drive) or anything from Divvy's preferences, which contain a licence key.
