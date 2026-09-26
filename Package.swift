@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "GridKeys",
+    name: "Snapgrid",
     platforms: [.macOS(.v13)],
     products: [
-        .executable(name: "gridkeys", targets: ["gridkeys"]),
+        .executable(name: "snapgrid", targets: ["snapgrid"]),
     ],
     targets: [
-        .target(name: "GridKeysCore"),
-        .executableTarget(name: "gridkeys", dependencies: ["GridKeysCore"]),
-        .testTarget(name: "GridKeysCoreTests", dependencies: ["GridKeysCore"]),
+        .target(name: "SnapgridCore"),
+        .executableTarget(name: "snapgrid", dependencies: ["SnapgridCore"]),
+        .testTarget(name: "SnapgridCoreTests", dependencies: ["SnapgridCore"]),
     ]
 )

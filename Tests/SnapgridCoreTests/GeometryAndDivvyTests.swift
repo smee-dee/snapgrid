@@ -1,5 +1,5 @@
 import XCTest
-@testable import GridKeysCore
+@testable import SnapgridCore
 
 final class GeometryTests: XCTestCase {
     let screen = Rect(x: 0, y: 25, width: 1200, height: 600)

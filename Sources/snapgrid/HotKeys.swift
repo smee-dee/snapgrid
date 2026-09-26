@@ -1,6 +1,6 @@
 #if os(macOS)
 import Carbon
-import GridKeysCore
+import SnapgridCore
 
 /// Global hotkeys via Carbon `RegisterEventHotKey`. This needs no extra permission and
 /// only observes the registered combos, not general keyboard input.
@@ -12,7 +12,7 @@ final class HotKeyCenter {
     private var refs: [UInt32: EventHotKeyRef] = [:]
     private var nextID: UInt32 = 1
     private var installed = false
-    private let signature: OSType = 0x4752_444B // 'GRDK'
+    private let signature: OSType = 0x534E_5047 // 'SNPG'
 
     private init() {}
 

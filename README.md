@@ -1,4 +1,4 @@
-# GridKeys
+# Snapgrid
 
 A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on macOS. It places the focused window on a grid using global keyboard shortcuts, and everything is configured in one TOML file.
 
@@ -6,7 +6,7 @@ A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on m
 - Only Apple frameworks are used: AppKit, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 1,600 lines you can read.
 - Divvy-style grid shortcuts, with a grid size per shortcut, an optional gap, and moving windows to the next or previous display.
 - Divvy's *local* shortcuts (which work while the Divvy panel is open) map to a **leader key**: press it, then a plain key such as `l`, within a few seconds.
-- Imports your existing Divvy shortcuts with `gridkeys import-divvy`.
+- Imports your existing Divvy shortcuts with `snapgrid import-divvy`.
 - Runs as a menu-bar item (no Dock icon) with Reload, Edit Config, Launch at Login and Quit. The config reloads automatically when you save it.
 
 ## Install
@@ -14,14 +14,14 @@ A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on m
 You need Xcode or the Command Line Tools (for `swift`).
 
 ```bash
-git clone <this repo> gridkeys && cd gridkeys
+git clone <this repo> snapgrid && cd snapgrid
 swift test                                 # optional: run the unit tests
 SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh --install
 ```
 
-`--install` copies `GridKeys.app` to `/Applications`, links the `gridkeys` CLI into `/opt/homebrew/bin` (or `~/.local/bin`), and launches the app.
+`--install` copies `Snapgrid.app` to `/Applications`, links the `snapgrid` CLI into `/opt/homebrew/bin` (or `~/.local/bin`), and launches the app.
 
-- **Accessibility:** On first launch, macOS asks for Accessibility access. This is required to move other apps' windows. Enable GridKeys under System Settings › Privacy & Security › Accessibility.
+- **Accessibility:** On first launch, macOS asks for Accessibility access. This is required to move other apps' windows. Enable Snapgrid under System Settings › Privacy & Security › Accessibility.
 - **Signing:** macOS ties that permission to the code signature. With a stable `SIGN_IDENTITY`, the grant survives rebuilds. Without one, the script signs ad-hoc and you must re-grant after every rebuild. A free Apple Development certificate (Xcode › Settings › Accounts) is enough. Run `security find-identity -v -p codesigning` to list yours. Notarization is only needed if you distribute the app to other people.
 - **Launch at login:** Use the menu-bar item's "Launch at Login" option, which uses `SMAppService`.
 
@@ -30,9 +30,9 @@ SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh
 On the Mac where Divvy is set up:
 
 ```bash
-gridkeys import-divvy            # reads Divvy's prefs, writes ~/.config/gridkeys/config.toml
-gridkeys check                   # review what was imported
-gridkeys reload                  # or just save the file; the app picks it up
+snapgrid import-divvy            # reads Divvy's prefs, writes ~/.config/snapgrid/config.toml
+snapgrid check                   # review what was imported
+snapgrid reload                  # or just save the file; the app picks it up
 ```
 
 - **Where it reads from:** The importer reads `defaults export com.mizage.direct.Divvy` (the direct download) or `com.mizage.Divvy` (the App Store build). To convert a plist copied from another machine, use `--plist FILE`. To preview without writing anything, use `--output -`.
@@ -45,7 +45,7 @@ gridkeys reload                  # or just save the file; the app picks it up
 
 ## Config reference
 
-`~/.config/gridkeys/config.toml` (or `$XDG_CONFIG_HOME/gridkeys/config.toml`). Run `gridkeys init` to create the starter file shown in [`config.example.toml`](config.example.toml).
+`~/.config/snapgrid/config.toml` (or `$XDG_CONFIG_HOME/snapgrid/config.toml`). Run `snapgrid init` to create the starter file shown in [`config.example.toml`](config.example.toml).
 
 ```toml
 [settings]
@@ -55,7 +55,7 @@ leader = "ctrl+alt+space" # arms local shortcuts (optional)
 leader_timeout = 3        # seconds they stay armed
 
 [[shortcut]]
-name = "Left two thirds"  # optional, shown in `gridkeys check` and error messages
+name = "Left two thirds"  # optional, shown in `snapgrid check` and error messages
 keys = "ctrl+alt+e"
 grid = "3x1"              # optional, overrides [settings] grid
 cells = "0,0 2x1"         # col,row of top-left cell (0-based), then width x height in cells
@@ -73,21 +73,21 @@ action = "next-screen"    # or "previous-screen"; keeps relative size and positi
 ## CLI
 
 ```
-gridkeys run [--config PATH]      run in the foreground (logs to stderr; handy for debugging)
-gridkeys check [--config PATH]    validate and list shortcuts
-gridkeys init [--force]           write the starter config
-gridkeys import-divvy [--plist FILE] [--output PATH|-] [--force]
-gridkeys reload                   tell the running app to reload
+snapgrid run [--config PATH]      run in the foreground (logs to stderr; handy for debugging)
+snapgrid check [--config PATH]    validate and list shortcuts
+snapgrid init [--force]           write the starter config
+snapgrid import-divvy [--plist FILE] [--output PATH|-] [--force]
+snapgrid reload                   tell the running app to reload
 ```
 
-If `run` is started from a terminal, macOS attributes the Accessibility permission to the terminal app. For daily use, launch `GridKeys.app` instead.
+If `run` is started from a terminal, macOS attributes the Accessibility permission to the terminal app. For daily use, launch `Snapgrid.app` instead.
 
 ## Layout
 
 ```
-Sources/GridKeysCore/   platform-independent: TOML subset parser, config model, key parsing,
+Sources/SnapgridCore/   platform-independent: TOML subset parser, config model, key parsing,
                         grid geometry, Divvy importer (unit-tested, also builds on Linux)
-Sources/gridkeys/       macOS app + CLI: Carbon hotkeys, AX window moves, keyboard layout, menu bar
+Sources/snapgrid/       macOS app + CLI: Carbon hotkeys, AX window moves, keyboard layout, menu bar
 Tests/                  XCTest suite for the core
-scripts/build-app.sh    builds and signs GridKeys.app
+scripts/build-app.sh    builds and signs Snapgrid.app
 ```

@@ -2,10 +2,10 @@
 import AppKit
 import ApplicationServices
 import Carbon
-import GridKeysCore
+import SnapgridCore
 import ServiceManagement
 
-let reloadNotification = Notification.Name("dev.gridkeys.reload")
+let reloadNotification = Notification.Name("dev.snapgrid.reload")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -175,7 +175,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setIcon(armed: Bool) {
         let name = armed ? "square.grid.3x3.fill" : "square.grid.3x3"
-        statusItem.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: "GridKeys")
+        statusItem.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: "Snapgrid")
     }
 
     private func rebuildMenu() {
@@ -187,10 +187,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if let config {
             let local = config.shortcuts.filter { !$0.global }.count
-            info("GridKeys — \(config.shortcuts.count - local) global, \(local) local shortcuts")
+            info("Snapgrid — \(config.shortcuts.count - local) global, \(local) local shortcuts")
             if let leader = config.settings.leader, local > 0 { info("Leader: \(leader)") }
         } else {
-            info("GridKeys — no config loaded")
+            info("Snapgrid — no config loaded")
         }
         if let configError { info("⚠︎ Config error: \(configError)") }
         for failed in failedCombos { info("⚠︎ Not registered: \(failed)") }
@@ -207,7 +207,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(login)
         }
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit GridKeys", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit Snapgrid", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         for item in menu.items where item.action != nil && item.action != #selector(NSApplication.terminate(_:)) {
             item.target = self
         }
@@ -243,6 +243,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 func log(_ message: String) {
-    FileHandle.standardError.write(Data("gridkeys: \(message)\n".utf8))
+    FileHandle.standardError.write(Data("snapgrid: \(message)\n".utf8))
 }
 #endif

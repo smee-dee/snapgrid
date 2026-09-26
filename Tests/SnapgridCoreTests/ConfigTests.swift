@@ -1,5 +1,5 @@
 import XCTest
-@testable import GridKeysCore
+@testable import SnapgridCore
 
 final class TOMLTests: XCTestCase {
     func testParsesTablesArraysAndScalars() throws {

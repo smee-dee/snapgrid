@@ -1,5 +1,5 @@
 import Foundation
-import GridKeysCore
+import SnapgridCore
 #if os(macOS)
 import AppKit
 #endif
@@ -15,7 +15,7 @@ func runDaemon(configURL: URL) -> Never {
     }
     exit(0)
     #else
-    FileHandle.standardError.write(Data("gridkeys: the daemon only runs on macOS\n".utf8))
+    FileHandle.standardError.write(Data("snapgrid: the daemon only runs on macOS\n".utf8))
     exit(1)
     #endif
 }
@@ -55,7 +55,7 @@ do {
     case "reload":
         #if os(macOS)
         DistributedNotificationCenter.default().postNotificationName(
-            Notification.Name("dev.gridkeys.reload"), object: nil, userInfo: nil, deliverImmediately: true)
+            Notification.Name("dev.snapgrid.reload"), object: nil, userInfo: nil, deliverImmediately: true)
         print("Reload requested")
         #else
         throw CLI.Failure(message: "reload only works on macOS")
@@ -68,9 +68,9 @@ do {
         throw CLI.Failure(message: "unknown command '\(other)'\n\n\(CLI.usage)", code: 2)
     }
 } catch let failure as CLI.Failure {
-    FileHandle.standardError.write(Data("gridkeys: \(failure.message)\n".utf8))
+    FileHandle.standardError.write(Data("snapgrid: \(failure.message)\n".utf8))
     exit(failure.code)
 } catch {
-    FileHandle.standardError.write(Data("gridkeys: \(error)\n".utf8))
+    FileHandle.standardError.write(Data("snapgrid: \(error)\n".utf8))
     exit(1)
 }

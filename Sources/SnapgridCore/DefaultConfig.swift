@@ -1,6 +1,6 @@
 public enum DefaultConfig {
     public static let text = """
-    # GridKeys config. Reloads automatically when saved.
+    # Snapgrid config. Reloads automatically when saved.
     #
     # cells = "col,row WxH"  →  0-based top-left cell, then width x height in cells.
     # keys  = modifiers (ctrl, alt/option, shift, cmd) + one key, joined with "+".

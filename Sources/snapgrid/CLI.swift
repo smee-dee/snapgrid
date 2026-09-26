@@ -1,21 +1,21 @@
 import Foundation
-import GridKeysCore
+import SnapgridCore
 
 enum CLI {
     static let version = "0.1.0"
 
     static let usage = """
-    gridkeys \(version) — Divvy-style grid window placement with global shortcuts
+    snapgrid \(version) — Divvy-style grid window placement with global shortcuts
 
     USAGE
-      gridkeys run [--config PATH]          Run the hotkey daemon in the foreground
-      gridkeys check [--config PATH]        Validate the config and list shortcuts
-      gridkeys init [--config PATH] [--force]
+      snapgrid run [--config PATH]          Run the hotkey daemon in the foreground
+      snapgrid check [--config PATH]        Validate the config and list shortcuts
+      snapgrid init [--config PATH] [--force]
                                             Write a starter config
-      gridkeys import-divvy [--plist FILE] [--output PATH|-] [--force]
-                                            Convert your Divvy shortcuts to a GridKeys config
-      gridkeys reload                       Ask the running app to reload its config
-      gridkeys help | version
+      snapgrid import-divvy [--plist FILE] [--output PATH|-] [--force]
+                                            Convert your Divvy shortcuts to a Snapgrid config
+      snapgrid reload                       Ask the running app to reload its config
+      snapgrid help | version
 
     Default config: \(Config.defaultPath.path)
     """
@@ -114,7 +114,7 @@ enum CLI {
         try write(text, to: url, force: opts.flags.contains("--force"))
         let local = prefs.shortcuts.filter { !$0.global }.count
         print("Imported \(prefs.shortcuts.count) Divvy shortcuts (\(local) local) into \(url.path)")
-        print("Review it, then run: gridkeys check")
+        print("Review it, then run: snapgrid check")
     }
 
     /// Reads Divvy's preferences via `defaults export`, which works for both the

@@ -73,7 +73,7 @@ public struct Config: Equatable {
         let env = ProcessInfo.processInfo.environment
         let base = env["XDG_CONFIG_HOME"].map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config")
-        return base.appendingPathComponent("gridkeys/config.toml")
+        return base.appendingPathComponent("snapgrid/config.toml")
     }
 
     public static func load(from url: URL) throws -> Config {

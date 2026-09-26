@@ -1,7 +1,7 @@
 #!/bin/bash
-# Builds GridKeys.app (arm64) and optionally installs it.
+# Builds Snapgrid.app (arm64) and optionally installs it.
 #
-#   scripts/build-app.sh             # build to build/GridKeys.app
+#   scripts/build-app.sh             # build to build/Snapgrid.app
 #   scripts/build-app.sh --install   # also copy to /Applications and link the CLI
 #
 # Signing: macOS ties the Accessibility grant to the code signature. Ad-hoc signing
@@ -11,24 +11,24 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-APP=build/GridKeys.app
-BUNDLE_ID=dev.gridkeys.GridKeys
-VERSION=$(sed -n 's/.*static let version = "\(.*\)"/\1/p' Sources/gridkeys/CLI.swift)
+APP=build/Snapgrid.app
+BUNDLE_ID=dev.snapgrid.Snapgrid
+VERSION=$(sed -n 's/.*static let version = "\(.*\)"/\1/p' Sources/snapgrid/CLI.swift)
 
 swift build -c release --arch arm64
-BIN=$(swift build -c release --arch arm64 --show-bin-path)/gridkeys
+BIN=$(swift build -c release --arch arm64 --show-bin-path)/snapgrid
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp "$BIN" "$APP/Contents/MacOS/gridkeys"
+cp "$BIN" "$APP/Contents/MacOS/snapgrid"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>${BUNDLE_ID}</string>
-  <key>CFBundleName</key><string>GridKeys</string>
-  <key>CFBundleExecutable</key><string>gridkeys</string>
+  <key>CFBundleName</key><string>Snapgrid</string>
+  <key>CFBundleExecutable</key><string>snapgrid</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
   <key>CFBundleVersion</key><string>${VERSION}</string>
@@ -45,16 +45,16 @@ if [[ "$IDENTITY" == "-" ]]; then
 fi
 codesign --force --options runtime --identifier "$BUNDLE_ID" --sign "$IDENTITY" "$APP"
 codesign --verify --strict "$APP"
-echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/gridkeys"))"
+echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/snapgrid"))"
 
 if [[ "${1:-}" == "--install" ]]; then
-  osascript -e 'quit app "GridKeys"' 2>/dev/null || true
-  rm -rf /Applications/GridKeys.app
+  osascript -e 'quit app "Snapgrid"' 2>/dev/null || true
+  rm -rf /Applications/Snapgrid.app
   cp -R "$APP" /Applications/
   LINK_DIR=/opt/homebrew/bin
   [[ -d "$LINK_DIR" && -w "$LINK_DIR" ]] || LINK_DIR="$HOME/.local/bin"
   mkdir -p "$LINK_DIR"
-  ln -sf /Applications/GridKeys.app/Contents/MacOS/gridkeys "$LINK_DIR/gridkeys"
-  echo "Installed /Applications/GridKeys.app; CLI linked at $LINK_DIR/gridkeys"
-  open /Applications/GridKeys.app
+  ln -sf /Applications/Snapgrid.app/Contents/MacOS/snapgrid "$LINK_DIR/snapgrid"
+  echo "Installed /Applications/Snapgrid.app; CLI linked at $LINK_DIR/snapgrid"
+  open /Applications/Snapgrid.app
 fi

@@ -137,7 +137,7 @@ public enum DivvyImporter {
         return Converted(cells: cells, grid: grid, combo: combo, note: note)
     }
 
-    /// Renders a GridKeys config from Divvy shortcuts.
+    /// Renders a Snapgrid config from Divvy shortcuts.
     public static func renderConfig(_ prefs: Preferences, source: String,
                                     layoutCharacter: ((UInt32) -> Character?)? = nil) -> String {
         let converted = prefs.shortcuts.map { ($0, convert($0, layoutCharacter: layoutCharacter)) }
@@ -148,7 +148,7 @@ public enum DivvyImporter {
         let hasLocal = prefs.shortcuts.contains { !$0.global && $0.enabled }
 
         var out = """
-        # GridKeys config — imported from Divvy (\(source))
+        # Snapgrid config — imported from Divvy (\(source))
         # See README.md ("Config reference") for all options.
         #
         # cells = "col,row WxH": 0-based top-left cell, then width x height in cells.

@@ -1,6 +1,6 @@
 #if os(macOS)
 import Carbon
-import GridKeysCore
+import SnapgridCore
 
 /// Maps between characters and virtual key codes using the active keyboard layout,
 /// so shortcuts follow the key labels (e.g. QWERTZ) rather than US positions.

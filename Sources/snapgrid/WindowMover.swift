@@ -1,7 +1,7 @@
 #if os(macOS)
 import AppKit
 import ApplicationServices
-import GridKeysCore
+import SnapgridCore
 
 struct ScreenInfo {
     var frame: Rect

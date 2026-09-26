@@ -2,7 +2,7 @@ import Foundation
 
 /// A deliberately small TOML subset: comments, `[table]`, `[[array-of-tables]]`
 /// and `key = value` where value is a string, integer, float or boolean.
-/// That is all the GridKeys config needs, and it keeps the tool dependency-free.
+/// That is all the Snapgrid config needs, and it keeps the tool dependency-free.
 public enum TOMLValue: Equatable {
     case string(String)
     case integer(Int)
