@@ -49,6 +49,10 @@ public struct Shortcut: Equatable {
     /// Global shortcuts work anywhere; local ones only right after pressing the leader key
     /// (the equivalent of Divvy's local shortcuts, which work while its panel is open).
     public var global: Bool
+
+    public init(name: String, combo: KeyCombo, action: Action, global: Bool) {
+        self.name = name; self.combo = combo; self.action = action; self.global = global
+    }
 }
 
 public struct Settings: Equatable {
@@ -56,6 +60,8 @@ public struct Settings: Equatable {
     public var gap: Double = 0
     public var leader: KeyCombo?
     public var leaderTimeout: Double = 3
+
+    public init() {}
 }
 
 public struct ConfigError: Error, CustomStringConvertible {
@@ -68,6 +74,10 @@ public struct Config: Equatable {
     public var settings = Settings()
     public var shortcuts: [Shortcut] = []
     public var warnings: [String] = []
+
+    public init(settings: Settings = Settings(), shortcuts: [Shortcut] = []) {
+        self.settings = settings; self.shortcuts = shortcuts
+    }
 
     public static var defaultPath: URL {
         let env = ProcessInfo.processInfo.environment
@@ -207,5 +217,43 @@ public struct Config: Equatable {
     private static func isFunctionKey(_ key: Key) -> Bool {
         guard case .code(let c) = key, let name = KeyCodes.name(for: c) else { return false }
         return name.hasPrefix("f") && Int(name.dropFirst()) != nil
+    }
+}
+
+extension Config {
+    /// TOML text that `Config.parse` reads back to the same settings and shortcuts.
+    /// Comments from a hand-edited file are not preserved.
+    public func render() -> String {
+        func number(_ d: Double) -> String { d == d.rounded() ? String(Int(d)) : String(d) }
+        let q = TOMLParser.quote
+        var out = """
+        # Snapgrid config — saved by Snapgrid Settings.
+        # See README.md ("Config reference") for all options.
+        #
+        # cells = "col,row WxH": 0-based top-left cell, then width x height in cells.
+
+        [settings]
+        grid = \(q(settings.grid.description))
+        gap = \(number(settings.gap))
+
+        """
+        if let leader = settings.leader {
+            out += "leader = \(q(leader.description))\n"
+            out += "leader_timeout = \(number(settings.leaderTimeout))\n"
+        }
+        for s in shortcuts {
+            out += "\n[[shortcut]]\n"
+            out += "name = \(q(s.name))\n"
+            out += "keys = \(q(s.combo.description))\n"
+            switch s.action {
+            case .place(let cells, let grid):
+                out += "cells = \(q(cells.description))\n"
+                if grid != settings.grid { out += "grid = \(q(grid.description))\n" }
+            case .nextScreen: out += "action = \"next-screen\"\n"
+            case .previousScreen: out += "action = \"previous-screen\"\n"
+            }
+            if !s.global { out += "global = false\n" }
+        }
+        return out
     }
 }

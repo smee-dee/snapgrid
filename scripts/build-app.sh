@@ -3,12 +3,22 @@
 #
 #   scripts/build-app.sh             # build to build/Snapgrid.app
 #   scripts/build-app.sh --install   # also copy to /Applications and link the CLI
+#   scripts/build-app.sh --zip       # also write build/Snapgrid-<version>.zip to share
 #
 # Signing: macOS ties the Accessibility grant to the code signature. Ad-hoc signing
 # (the fallback) changes on every build, so you'd have to re-grant after each rebuild.
 # Set SIGN_IDENTITY to a stable identity, e.g. your free "Apple Development: …" cert
 # (list them with: security find-identity -v -p codesigning).
 set -euo pipefail
+
+INSTALL=0 ZIP=0
+for arg in "$@"; do
+  case "$arg" in
+    --install) INSTALL=1 ;;
+    --zip) ZIP=1 ;;
+    *) echo "unknown option: $arg (use --install and/or --zip)" >&2; exit 2 ;;
+  esac
+done
 
 cd "$(dirname "$0")/.."
 OUT=build/Snapgrid.app
@@ -55,7 +65,14 @@ mkdir -p "$(dirname "$OUT")"
 ditto "$APP" "$OUT"
 echo "Built $OUT ($(lipo -archs "$APP/Contents/MacOS/snapgrid"))"
 
-if [[ "${1:-}" == "--install" ]]; then
+if (( ZIP )); then
+  ZIPFILE=build/Snapgrid-$VERSION.zip
+  rm -f "$ZIPFILE"
+  ditto -c -k --keepParent "$APP" "$ZIPFILE"
+  echo "Packaged $ZIPFILE"
+fi
+
+if (( INSTALL )); then
   osascript -e 'quit app "Snapgrid"' 2>/dev/null || true
   rm -rf /Applications/Snapgrid.app
   ditto "$APP" /Applications/Snapgrid.app

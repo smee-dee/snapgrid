@@ -3,11 +3,12 @@
 A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on macOS. It places the focused window on a grid using global keyboard shortcuts, and everything is configured in one TOML file.
 
 - Native arm64 (Apple Silicon), macOS 13 or later, built for macOS 27+. Divvy is Intel-only and stops working when Rosetta goes away in macOS 28.
-- Only Apple frameworks are used: AppKit, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 1,600 lines you can read.
+- Only Apple frameworks are used: AppKit, SwiftUI, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 2,400 lines you can read.
 - Divvy-style grid shortcuts, with a grid size per shortcut, an optional gap, and moving windows to the next or previous display.
 - Divvy's *local* shortcuts (which work while the Divvy panel is open) map to a **leader key**: press it, then a plain key such as `l`, within a few seconds.
 - Imports your existing Divvy shortcuts with `snapgrid import-divvy`.
-- Runs as a menu-bar item (no Dock icon) with Reload, Edit Config, Launch at Login and Quit. The config reloads automatically when you save it.
+- Runs as a menu-bar item (no Dock icon) with Settings, Reload, Edit Config File, Launch at Login and Quit. The config reloads automatically when you save it.
+- A **Settings** window (menu bar › Settings…, or open the app again) edits everything without touching the file: record shortcuts, drag across a grid to choose where the window goes, and set the grid, gap, leader key and launch at login. It also imports from Divvy and shows Accessibility status and shortcuts another app already uses.
 
 ## Install
 
@@ -24,6 +25,13 @@ SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh
 - **Accessibility:** On first launch, macOS asks for Accessibility access. This is required to move other apps' windows. Enable Snapgrid under System Settings › Privacy & Security › Accessibility.
 - **Signing:** macOS ties that permission to the code signature. With a stable `SIGN_IDENTITY`, the grant survives rebuilds. Without one, the script signs ad-hoc and you must re-grant after every rebuild. A free Apple Development certificate (Xcode › Settings › Accounts) is enough. Run `security find-identity -v -p codesigning` to list yours. Notarization is only needed if you distribute the app to other people.
 - **Launch at login:** Use the menu-bar item's "Launch at Login" option, which uses `SMAppService`.
+- **Tests without Xcode selected:** The Command Line Tools don't include XCTest. Run `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`. If the repo is in an iCloud-synced folder such as `~/Documents`, add `--scratch-path ~/Library/Caches/snapgrid-build`, because codesign rejects the file attributes iCloud adds.
+
+## Share a build
+
+`scripts/build-app.sh --zip` writes `build/Snapgrid-<version>.zip`. Attach it to a release rather than committing it: binaries in git bloat the history and go stale with every change.
+
+People who receive a zip signed with an Apple Development certificate will see macOS block it the first time, because only Developer ID builds that Apple has notarized open without a warning. They can allow it once under System Settings › Privacy & Security › "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Snapgrid.app`. Then they grant Accessibility as usual. To avoid the warning entirely you need a paid Apple Developer account, a "Developer ID Application" identity, and `xcrun notarytool submit … --wait` followed by `xcrun stapler staple`.
 
 ## Migrate from Divvy
 
@@ -87,7 +95,8 @@ If `run` is started from a terminal, macOS attributes the Accessibility permissi
 ```
 Sources/SnapgridCore/   platform-independent: TOML subset parser, config model, key parsing,
                         grid geometry, Divvy importer (unit-tested, also builds on Linux)
-Sources/snapgrid/       macOS app + CLI: Carbon hotkeys, AX window moves, keyboard layout, menu bar
+Sources/snapgrid/       macOS app + CLI: Carbon hotkeys, AX window moves, keyboard layout, menu bar,
+                        SwiftUI settings window (SettingsModel.swift, SettingsView.swift)
 Tests/                  XCTest suite for the core
 scripts/build-app.sh    builds and signs Snapgrid.app
 ```

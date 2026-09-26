@@ -4,6 +4,7 @@ import ApplicationServices
 import Carbon
 import SnapgridCore
 import ServiceManagement
+import SwiftUI
 
 let reloadNotification = Notification.Name("dev.snapgrid.reload")
 
@@ -21,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var watcher: DispatchSourceFileSystemObject?
     private var lastConfigText: String?
+    private var settingsModel: SettingsModel?
+    private var settingsWindow: NSWindow?
 
     init(configURL: URL) {
         self.configURL = configURL
@@ -29,14 +32,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         setIcon(armed: false)
+        installMainMenu()
 
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         if !AXIsProcessTrustedWithOptions(options) {
             log("Accessibility permission missing — grant it in System Settings › Privacy & Security › Accessibility")
         }
 
+        let firstRun = !FileManager.default.fileExists(atPath: configURL.path)
+        if firstRun { try? CLI.writeDefaultConfig(to: configURL, force: false) }
         reload()
         watchConfigDirectory()
+        if firstRun { showSettings() }
         DistributedNotificationCenter.default().addObserver(
             forName: reloadNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reload() }
@@ -93,15 +100,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Hotkeys
 
-    private func registerHotKeys() {
-        let center = HotKeyCenter.shared
+    private func unregisterHotKeys() {
         disarmLeader()
-        center.unregisterAll(globalIDs)
+        HotKeyCenter.shared.unregisterAll(globalIDs)
         globalIDs = []
-        if let leaderID { center.unregister(leaderID) }
+        if let leaderID { HotKeyCenter.shared.unregister(leaderID) }
         leaderID = nil
+    }
+
+    private func registerHotKeys() {
+        unregisterHotKeys()
         failedCombos = []
         layoutTable = KeyboardLayout.characterTable()
+        defer { settingsModel?.notRegistered = failedCombos }
 
         guard let config else { rebuildMenu(); return }
         for shortcut in config.shortcuts where shortcut.global {
@@ -198,8 +209,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(NSMenuItem(title: "⚠︎ Grant Accessibility Permission…", action: #selector(openAccessibility), keyEquivalent: ""))
         }
         menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Reload Config", action: #selector(reload), keyEquivalent: "r"))
-        menu.addItem(NSMenuItem(title: "Edit Config", action: #selector(openConfig), keyEquivalent: "e"))
+        menu.addItem(NSMenuItem(title: "Edit Config File", action: #selector(openConfig), keyEquivalent: "e"))
         menu.addItem(NSMenuItem(title: "Show Config in Finder", action: #selector(revealConfig), keyEquivalent: ""))
         if Bundle.main.bundleURL.pathExtension == "app" {
             let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
@@ -239,6 +251,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             log("launch at login: \(error.localizedDescription)")
         }
         rebuildMenu()
+    }
+
+    // MARK: Settings window
+
+    @objc func showSettings() {
+        let model = settingsModel ?? makeSettingsModel()
+        if let settingsWindow {
+            if !model.isDirty { model.revert() }
+            if !settingsWindow.isVisible { settingsWindow.center() }
+        } else {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model)))
+            window.title = "Snapgrid Settings"
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.setContentSize(NSSize(width: 860, height: 620))
+            window.center()
+            settingsWindow = window
+        }
+        model.notRegistered = failedCombos
+        if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func makeSettingsModel() -> SettingsModel {
+        let model = SettingsModel(configURL: configURL)
+        model.onSave = { [weak self] in self?.reload() }
+        model.pauseHotKeys = { [weak self] paused in
+            if paused { self?.unregisterHotKeys() } else { self?.registerHotKeys() }
+        }
+        model.onLoginChanged = { [weak self] in self?.rebuildMenu() }
+        settingsModel = model
+        return model
+    }
+
+    /// Opening the app again (Finder, Spotlight) while it runs shows Settings.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return false
+    }
+
+    /// A menu-bar app has no main menu by default, which leaves ⌘C/⌘V/⌘W dead in the Settings window.
+    private func installMainMenu() {
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        appMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: "Quit Snapgrid", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let main = NSMenu()
+        for submenu in [appMenu, edit] {
+            let item = NSMenuItem()
+            item.submenu = submenu
+            main.addItem(item)
+        }
+        NSApp.mainMenu = main
+    }
+}
+
+extension AppDelegate: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        settingsModel?.stopRecording()
     }
 }
 

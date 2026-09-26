@@ -120,6 +120,20 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(config.warnings.count, 1)
     }
 
+    func testRenderRoundTrips() throws {
+        var config = try Config.parse(DefaultConfig.text)
+        config.settings.gap = 2.5
+        config.shortcuts.append(Shortcut(name: "Quote \"x\"", combo: try KeyCombo.parse("ctrl+keycode:10"),
+                                         action: .place(CellRange(x: 1, y: 0, w: 2, h: 1), grid: GridSize(columns: 3, rows: 1)),
+                                         global: true))
+        let again = try Config.parse(config.render())
+        XCTAssertEqual(again.settings, config.settings)
+        XCTAssertEqual(again.shortcuts, config.shortcuts)
+
+        config.settings.leader = nil
+        XCTAssertFalse(config.render().contains("leader"))
+    }
+
     func testBareFunctionKeyMayBeGlobal() throws {
         XCTAssertNoThrow(try Config.parse("[[shortcut]]\nkeys = \"f13\"\ncells = \"0,0 1x1\""))
     }
