@@ -23,8 +23,11 @@ Divvy was the best grid window manager on the Mac, but it appears to be no longe
 ## Screenshots
 
 <p align="center">
+  <img src="docs/screenshots/grid-panel.png" width="430" alt="Grid panel after the leader key: drag across the grid to place the window, + and − change columns and rows">
+</p>
+<p align="center">
   <img src="docs/screenshots/settings-shortcuts.png" width="420" alt="Settings: shortcut list with a Divvy-style grid picker">
-  <img src="docs/screenshots/settings-general.png" width="420" alt="Settings: grid, leader key, launch at login, iCloud sync and updates">
+  <img src="docs/screenshots/settings-general.png" width="420" alt="Settings: grid, margins, leader key, launch at login, iCloud sync, config file and updates with beta versions">
 </p>
 <p align="center">
   <img src="docs/screenshots/setup-shortcuts.png" width="420" alt="Setup assistant: keep settings, import from Divvy or start with examples">
