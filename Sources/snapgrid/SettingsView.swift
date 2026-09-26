@@ -402,6 +402,14 @@ private struct UpdatesSection: View {
             LabeledContent("Installed version") { Text(updater.currentVersion.description) }
             if updater.repo != nil {
                 Toggle("Check for updates automatically", isOn: $updater.automatic)
+                Toggle(isOn: $updater.autoInstall) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Install updates automatically")
+                        Text("Waits until you haven't used the Mac for \(Int(Updater.idleBeforeInstall / 60)) minutes, then restarts Snapgrid in a second.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!updater.automatic)
             }
             HStack {
                 status

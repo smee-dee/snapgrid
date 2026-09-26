@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private let updater = Updater()
     private let overlay = GridOverlay()
+    private var leaderArmed = false
 
     init(configURL: URL) {
         self.configURL = configURL
@@ -40,7 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !hadConfig { try? CLI.writeDefaultConfig(to: configURL, force: false) }
         reload()
         watchConfigDirectory()
-        updater.onStateChange = { [weak self] in self?.rebuildMenu() }
+        updater.onStateChange = { [weak self] in
+            self?.rebuildMenu()
+            self?.updateIcon()
+        }
+        updater.canInstallNow = { [weak self] in
+            guard let self else { return false }
+            return !self.overlay.isVisible && !(self.settingsModel?.isDirty ?? false)
+        }
         updater.startAutomaticChecks()
 
         if !UserDefaults.standard.bool(forKey: OnboardingModel.completedKey) {
@@ -223,8 +231,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Menu
 
     private func setIcon(armed: Bool) {
-        let name = armed ? "square.grid.3x3.fill" : "square.grid.3x3"
-        statusItem.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: "Snapgrid")
+        leaderArmed = armed
+        updateIcon()
+    }
+
+    /// Menu-bar icon: filled while the leader is armed, with a dot while an update is waiting.
+    private func updateIcon() {
+        let name = leaderArmed ? "square.grid.3x3.fill" : "square.grid.3x3"
+        guard let base = NSImage(systemSymbolName: name, accessibilityDescription: "Snapgrid") else { return }
+        guard case .available = updater.state else {
+            statusItem.button?.image = base
+            return
+        }
+        let image = NSImage(size: base.size, flipped: false) { rect in
+            base.draw(in: rect)
+            let d = max(rect.width * 0.38, 6)
+            let dot = NSRect(x: rect.maxX - d, y: rect.maxY - d, width: d, height: d)
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: dot).fill()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Snapgrid, update available"
+        statusItem.button?.image = image
     }
 
     private func rebuildMenu() {

@@ -17,10 +17,18 @@ final class Updater: ObservableObject {
     struct Failure: Error { let message: String }
 
     static let automaticKey = "checkForUpdatesAutomatically"
+    static let autoInstallKey = "installUpdatesAutomatically"
     static let lastCheckKey = "lastUpdateCheck"
+    /// Automatic installs wait until the Mac has been idle this long, since Snapgrid restarts.
+    static let idleBeforeInstall: TimeInterval = 600
 
-    @Published private(set) var state: State = .idle
+    @Published private(set) var state: State = .idle {
+        didSet { if case .available = state, autoInstall { scheduleIdleInstall() } }
+    }
     var onStateChange: () -> Void = {}
+    /// Lets the app veto an automatic restart, e.g. while Settings has unsaved edits.
+    var canInstallNow: () -> Bool = { true }
+    private var idleTimer: Timer?
 
     /// "owner/repo", written into Info.plist by scripts/build-app.sh.
     let repo = (Bundle.main.object(forInfoDictionaryKey: "SnapgridUpdateRepo") as? String).flatMap { $0.isEmpty ? nil : $0 }
@@ -33,6 +41,35 @@ final class Updater: ObservableObject {
             objectWillChange.send()
             UserDefaults.standard.set(newValue, forKey: Self.automaticKey)
         }
+    }
+
+    var autoInstall: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.autoInstallKey) }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: Self.autoInstallKey)
+            if newValue, case .available = state { scheduleIdleInstall() }
+        }
+    }
+
+    private func scheduleIdleInstall() {
+        guard idleTimer == nil else { return }
+        idleTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.installIfIdle() }
+        }
+    }
+
+    private func installIfIdle() {
+        guard autoInstall, case .available(let release) = state else {
+            idleTimer?.invalidate()
+            idleTimer = nil
+            return
+        }
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
+        guard idle >= Self.idleBeforeInstall, canInstallNow() else { return }
+        idleTimer?.invalidate()
+        idleTimer = nil
+        Task { await install(release) }
     }
 
     /// Checks at launch and then every few hours, at most once a day.
