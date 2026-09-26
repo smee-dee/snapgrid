@@ -177,6 +177,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                              self?.disarmLeader()
                              self?.run(.place(cells, grid: grid), name: "grid selection")
                          },
+                         onSettings: { [weak self] in
+                             // Close after the click finishes, so the button isn't freed mid-action.
+                             DispatchQueue.main.async {
+                                 MainActor.assumeIsolated {
+                                     self?.disarmLeader()
+                                     self?.showSettings()
+                                 }
+                             }
+                         },
                          onDismiss: { [weak self] in self?.disarmLeader() })
             return
         }

@@ -13,7 +13,8 @@ final class GridOverlay {
     var isVisible: Bool { panel != nil }
 
     func show(grid: GridSize, on screen: NSScreen, app: NSRunningApplication?,
-              onSelect: @escaping (CellRange) -> Void, onDismiss: @escaping () -> Void) {
+              onSelect: @escaping (CellRange) -> Void, onSettings: @escaping () -> Void,
+              onDismiss: @escaping () -> Void) {
         hide()
         let visible = screen.visibleFrame
         let padding: CGFloat = 16, titleHeight: CGFloat = 28, hintHeight: CGFloat = 16
@@ -46,7 +47,9 @@ final class GridOverlay {
         let title = NSTextField(labelWithString: app?.localizedName ?? "Snapgrid")
         title.font = .systemFont(ofSize: 15, weight: .semibold)
         title.textColor = .labelColor
-        title.frame = NSRect(x: padding + 32, y: y + 4, width: gridWidth - 32, height: 20)
+        title.frame = NSRect(x: padding + 32, y: y + 4, width: gridWidth - 64, height: 20)
+        let settings = ActionButton(symbol: "gearshape.fill", label: "Snapgrid Settings", action: onSettings)
+        settings.frame = NSRect(x: padding + gridWidth - 24, y: y + 2, width: 24, height: 24)
 
         y -= 10 + gridHeight
         let gridView = GridSelectView(grid: grid, onSelect: onSelect)
@@ -58,7 +61,7 @@ final class GridOverlay {
         hint.alignment = .center
         hint.frame = NSRect(x: padding, y: y - 10 - hintHeight, width: gridWidth, height: hintHeight)
 
-        for view in [icon, title, gridView, hint] as [NSView] { background.addSubview(view) }
+        for view in [icon, title, settings, gridView, hint] as [NSView] { background.addSubview(view) }
         panel.contentView = background
         panel.setFrameOrigin(NSPoint(x: (visible.midX - size.width / 2).rounded(),
                                      y: (visible.midY - size.height / 2).rounded()))
@@ -82,6 +85,30 @@ final class GridOverlay {
 private final class OverlayPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+/// Borderless symbol button that reacts to the first click, since the panel is never key.
+private final class ActionButton: NSButton {
+    private let handler: () -> Void
+
+    init(symbol: String, label: String, action: @escaping () -> Void) {
+        handler = action
+        super.init(frame: .zero)
+        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
+            .withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
+        isBordered = false
+        imagePosition = .imageOnly
+        contentTintColor = .secondaryLabelColor
+        toolTip = label
+        target = self
+        self.action = #selector(clicked)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    @objc private func clicked() { handler() }
 }
 
 private final class GridSelectView: NSView {
