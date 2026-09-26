@@ -5,12 +5,13 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
+    let updater: Updater
 
     var body: some View {
         VStack(spacing: 0) {
             TabView {
                 ShortcutsTab(model: model).tabItem { Text("Shortcuts") }
-                GeneralTab(model: model).tabItem { Text("General") }
+                GeneralTab(model: model, updater: updater).tabItem { Text("General") }
             }
             .padding([.horizontal, .top], 12)
             FooterBar(model: model)
@@ -285,6 +286,7 @@ private struct KeyRecorder: View {
 
 private struct GeneralTab: View {
     @ObservedObject var model: SettingsModel
+    @ObservedObject var updater: Updater
 
     var body: some View {
         Form {
@@ -363,6 +365,7 @@ private struct GeneralTab: View {
                     Button("Import from Divvy…") { model.importDivvy() }
                 }
             }
+            UpdatesSection(updater: updater)
         }
         .formStyle(.grouped)
         .confirmationDialog("iCloud Drive already has Snapgrid settings", isPresented: $model.cloudChoicePending) {
@@ -377,6 +380,48 @@ private struct GeneralTab: View {
                 model.refreshStatus()
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
+        }
+    }
+}
+
+private struct UpdatesSection: View {
+    @ObservedObject var updater: Updater
+
+    var body: some View {
+        Section("Updates") {
+            LabeledContent("Installed version") { Text(updater.currentVersion.description) }
+            if updater.repo != nil {
+                Toggle("Check for updates automatically", isOn: $updater.automatic)
+            }
+            HStack {
+                status
+                Spacer()
+                if case .available(let release) = updater.state {
+                    if let page = release.pageURL { Link("What's New", destination: page) }
+                    Button("Install and Restart") { Task { await updater.install(release) } }
+                } else {
+                    Button("Check Now") { Task { await updater.check(userInitiated: true) } }
+                        .disabled(updater.repo == nil || updater.state == .checking || updater.state == .installing)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch updater.state {
+        case .idle:
+            Text(updater.repo == nil ? "This build has no update source." : "").foregroundStyle(.secondary)
+        case .checking:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Checking…") }
+        case .upToDate:
+            Label("Snapgrid is up to date.", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .available(let release):
+            Label("Version \(release.version.description) is available.", systemImage: "arrow.down.circle.fill")
+                .foregroundStyle(Color.accentColor)
+        case .installing:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Downloading and installing…") }
+        case .failed(let message):
+            Text(message).foregroundStyle(.red)
         }
     }
 }

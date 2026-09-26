@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastConfigText: String?
     private var settingsModel: SettingsModel?
     private var settingsWindow: NSWindow?
+    private let updater = Updater()
 
     init(configURL: URL) {
         self.configURL = configURL
@@ -38,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !hadConfig { try? CLI.writeDefaultConfig(to: configURL, force: false) }
         reload()
         watchConfigDirectory()
+        updater.onStateChange = { [weak self] in self?.rebuildMenu() }
+        updater.startAutomaticChecks()
 
         if !UserDefaults.standard.bool(forKey: OnboardingModel.completedKey) {
             showOnboarding(currentConfig: hadConfig ? config : nil)
@@ -212,6 +215,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AXIsProcessTrusted() {
             menu.addItem(NSMenuItem(title: "⚠︎ Grant Accessibility Permission…", action: #selector(openAccessibility), keyEquivalent: ""))
         }
+        if case .available(let release) = updater.state {
+            menu.addItem(NSMenuItem(title: "Install Update \(release.version)…", action: #selector(installUpdate), keyEquivalent: ""))
+        }
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Setup Assistant…", action: #selector(showOnboardingFromMenu), keyEquivalent: ""))
@@ -222,6 +228,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
             login.state = SMAppService.mainApp.status == .enabled ? .on : .off
             menu.addItem(login)
+        }
+        if updater.repo != nil {
+            menu.addItem(NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: ""))
         }
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Snapgrid", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -266,7 +275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if !model.isDirty { model.revert() }
             if !settingsWindow.isVisible { settingsWindow.center() }
         } else {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model)))
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model, updater: updater)))
             window.title = "Snapgrid Settings"
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.isReleasedWhenClosed = false
@@ -293,6 +302,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settingsModel = model
         return model
+    }
+
+    // MARK: Updates
+
+    @objc private func checkForUpdates() {
+        showSettings()
+        Task { await updater.check(userInitiated: true) }
+    }
+
+    @objc private func installUpdate() {
+        guard case .available(let release) = updater.state else { return }
+        let alert = NSAlert()
+        alert.messageText = "Install Snapgrid \(release.version)?"
+        alert.informativeText = release.notes.isEmpty ? "Snapgrid restarts after the update." : release.notes
+        alert.addButton(withTitle: "Install and Restart")
+        alert.addButton(withTitle: "Later")
+        if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+        if alert.runModal() == .alertFirstButtonReturn {
+            Task { await updater.install(release) }
+        }
     }
 
     // MARK: Setup assistant

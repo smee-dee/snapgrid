@@ -29,9 +29,15 @@ SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh
 - **Launch at login:** Use the menu-bar item's "Launch at Login" option, which uses `SMAppService`.
 - **Tests without Xcode selected:** The Command Line Tools don't include XCTest. Run `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test`. If the repo is in an iCloud-synced folder such as `~/Documents`, add `--scratch-path ~/Library/Caches/snapgrid-build`, because codesign rejects the file attributes iCloud adds.
 
-## Share a build
+## Share a build and publish updates
 
-`scripts/build-app.sh --zip` writes `build/Snapgrid-<version>.zip`. Attach it to a release rather than committing it: binaries in git bloat the history and go stale with every change.
+Releases are published on GitHub, and the app updates itself from them:
+
+1. Bump `static let version` in `Sources/snapgrid/CLI.swift` and commit.
+2. Run `SIGN_IDENTITY="Apple Development: …" scripts/release.sh`. It needs the GitHub CLI (`gh auth login`) and a `github` git remote. It pushes to `main` on GitHub, builds and signs `Snapgrid-<version>.zip`, and publishes release `v<version>` with the zip attached.
+3. Installed copies notice the release within a day, or right away with menu bar › Check for Updates…. **Install and Restart** downloads the zip and installs it only if it's signed by the same team as the running app. Accessibility permission carries over, and nothing is re-quarantined, so there's no Gatekeeper prompt after the first install.
+
+Always release with the same certificate. The repo the app checks is written into `Info.plist` at build time: the `github` remote, or `UPDATE_REPO=owner/repo`. Builds without one simply have no update button. `scripts/build-app.sh --zip` alone writes the zip without publishing it. Don't commit binaries to git: they bloat the history and go stale.
 
 People who receive a zip signed with an Apple Development certificate will see macOS block it the first time, because only Developer ID builds that Apple has notarized open without a warning. They can allow it once under System Settings › Privacy & Security › "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Snapgrid.app`. Then they grant Accessibility as usual. To avoid the warning entirely you need a paid Apple Developer account, a "Developer ID Application" identity, and `xcrun notarytool submit … --wait` followed by `xcrun stapler staple`.
 
@@ -100,5 +106,6 @@ Sources/SnapgridCore/   platform-independent: TOML subset parser, config model, 
 Sources/snapgrid/       macOS app + CLI: Carbon hotkeys, AX window moves, keyboard layout, menu bar,
                         SwiftUI settings window (SettingsModel.swift, SettingsView.swift)
 Tests/                  XCTest suite for the core
-scripts/build-app.sh    builds and signs Snapgrid.app
+scripts/build-app.sh    builds and signs Snapgrid.app (--install, --zip)
+scripts/release.sh      publishes a GitHub release that installed copies update from
 ```

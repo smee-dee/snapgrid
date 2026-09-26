@@ -29,6 +29,8 @@ trap 'rm -rf "$STAGE"' EXIT
 APP=$STAGE/Snapgrid.app
 BUNDLE_ID=dev.snapgrid.Snapgrid
 VERSION=$(sed -n 's/.*static let version = "\(.*\)"/\1/p' Sources/snapgrid/CLI.swift)
+# "owner/repo" whose GitHub Releases the app checks for updates; defaults to the `github` remote.
+UPDATE_REPO=${UPDATE_REPO:-$(git remote get-url github 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//')}
 
 swift build -c release --arch arm64
 BIN=$(swift build -c release --arch arm64 --show-bin-path)/snapgrid
@@ -50,6 +52,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHumanReadableCopyright</key><string>Personal build</string>
+  <key>SnapgridUpdateRepo</key><string>${UPDATE_REPO}</string>
 </dict>
 </plist>
 PLIST
@@ -63,7 +66,7 @@ codesign --verify --strict "$APP"
 rm -rf "$OUT"
 mkdir -p "$(dirname "$OUT")"
 ditto "$APP" "$OUT"
-echo "Built $OUT ($(lipo -archs "$APP/Contents/MacOS/snapgrid"))"
+echo "Built $OUT ($(lipo -archs "$APP/Contents/MacOS/snapgrid"), updates from: ${UPDATE_REPO:-none})"
 
 if (( ZIP )); then
   ZIPFILE=build/Snapgrid-$VERSION.zip
