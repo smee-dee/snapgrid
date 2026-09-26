@@ -1,6 +1,6 @@
 # Notes for agents
 
-Swift package, Apple frameworks only (no third-party packages). `Sources/SnapgridCore` is platform-independent and unit-tested; `Sources/snapgrid` is the macOS app and CLI. The README's "Config reference" and "Share a build and publish updates" sections are the user-facing docs; keep them in sync with changes.
+Swift package, Apple frameworks only (no third-party packages). `Sources/SnapgridCore` is platform-independent and unit-tested; `Sources/snapgrid` is the macOS app and CLI. The README's "Config reference" and "Share a build and publish updates" sections are the user-facing docs; keep them in sync with changes. `CONTRIBUTING.md` repeats the build, test and pull request rules for human contributors; update it when those rules change.
 
 ## Build and test
 

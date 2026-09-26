@@ -138,3 +138,11 @@ Tests/                  XCTest suite for the core
 scripts/build-app.sh    builds and signs Snapgrid.app (--install, --zip)
 scripts/release.sh      publishes a GitHub release that installed copies update from
 ```
+
+## Contributing
+
+Issues and pull requests are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to build, test and send changes.
+
+## License
+
+[MIT](LICENSE): free to use, change and share.
