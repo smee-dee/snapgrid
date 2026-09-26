@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsModel: SettingsModel?
     private var settingsWindow: NSWindow?
     private let updater = Updater()
+    private let notifier = UpdateNotifier()
     private let overlay = GridOverlay()
     private var leaderArmed = false
     /// Display indexes (`NSScreen.screens`) the grid opened on and is showing on now.
@@ -46,6 +47,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updater.onStateChange = { [weak self] in
             self?.rebuildMenu()
             self?.updateIcon()
+        }
+        notifier.start()
+        notifier.onOpen = { [weak self] in self?.installUpdate() }
+        notifier.onInstall = { [weak self] in
+            guard let self, case .available(let release) = self.updater.state else { return }
+            Task { await self.updater.install(release) }
+        }
+        updater.onFound = { [weak self] release, userInitiated in
+            guard let self else { return }
+            self.notifier.notify(release, current: self.updater.currentVersion,
+                                 userInitiated: userInitiated, autoInstall: self.updater.autoInstall)
         }
         updater.canInstallNow = { [weak self] in
             guard let self else { return false }
@@ -252,26 +264,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
-    /// Menu-bar icon: filled while the leader is armed, with a dot while an update is waiting.
+    /// Menu-bar icon: filled while the leader is armed, with a coloured dot while an update is waiting.
     private func updateIcon() {
         let name = leaderArmed ? "square.grid.3x3.fill" : "square.grid.3x3"
         guard let base = NSImage(systemSymbolName: name, accessibilityDescription: "Snapgrid") else { return }
         guard case .available = updater.state else {
+            base.isTemplate = true
             statusItem.button?.image = base
             return
         }
+        // A template image can't hold colour, so the grid is drawn in the menu bar's text colour
+        // (the handler runs again when the appearance changes) and the dot in the accent colour.
         let image = NSImage(size: base.size, flipped: false) { rect in
             base.draw(in: rect)
-            let d = max(rect.width * 0.38, 6)
+            NSColor.labelColor.set()
+            rect.fill(using: .sourceAtop)
+            let d = max(rect.width * 0.34, 6)
             let dot = NSRect(x: rect.maxX - d, y: rect.maxY - d, width: d, height: d)
             NSGraphicsContext.current?.compositingOperation = .clear
             NSBezierPath(ovalIn: dot.insetBy(dx: -1.5, dy: -1.5)).fill()
             NSGraphicsContext.current?.compositingOperation = .sourceOver
-            NSColor.black.setFill()
+            NSColor.controlAccentColor.setFill()
             NSBezierPath(ovalIn: dot).fill()
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = false
         image.accessibilityDescription = "Snapgrid, update available"
         statusItem.button?.image = image
     }

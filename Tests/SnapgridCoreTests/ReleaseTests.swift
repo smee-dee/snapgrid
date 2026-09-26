@@ -55,6 +55,14 @@ final class UpdatePolicyTests: XCTestCase {
         XCTAssertFalse(UpdatePolicy.shouldInstallAutomatically(idleSeconds: 3600, appAllows: false))
     }
 
+    func testNotifiesOncePerVersionForAutomaticChecks() throws {
+        let v = try XCTUnwrap(AppVersion("0.3.1"))
+        XCTAssertTrue(UpdatePolicy.shouldNotify(about: v, lastNotified: nil, userInitiated: false))
+        XCTAssertTrue(UpdatePolicy.shouldNotify(about: v, lastNotified: "0.3.0", userInitiated: false))
+        XCTAssertFalse(UpdatePolicy.shouldNotify(about: v, lastNotified: "0.3.1", userInitiated: false))
+        XCTAssertFalse(UpdatePolicy.shouldNotify(about: v, lastNotified: nil, userInitiated: true))
+    }
+
     func testOnlyNewerDownloadsAreInstalled() throws {
         let current = try XCTUnwrap(AppVersion("0.2.3"))
         XCTAssertTrue(UpdatePolicy.isNewer(bundleVersion: "0.3.0", than: current))

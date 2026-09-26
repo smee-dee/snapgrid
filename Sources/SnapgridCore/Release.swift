@@ -92,6 +92,12 @@ public enum UpdatePolicy {
         "anchor apple generic and identifier \"\(identifier)\" and certificate leaf[subject.OU] = \"\(team)\""
     }
 
+    /// A notification is sent once per version, and only for automatic checks: a check
+    /// from the menu answers with a dialog instead.
+    public static func shouldNotify(about version: AppVersion, lastNotified: String?, userInitiated: Bool) -> Bool {
+        !userInitiated && lastNotified != version.description
+    }
+
     /// A download is only installed if its bundle version is newer than the running one.
     public static func isNewer(bundleVersion: String?, than current: AppVersion) -> Bool {
         guard let version = bundleVersion.flatMap(AppVersion.init) else { return false }

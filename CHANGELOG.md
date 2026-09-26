@@ -4,6 +4,12 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Added
+- A notification when an update is found (once per version), with an Install and Restart button. macOS asks once whether Snapgrid may send notifications.
+
+### Changed
+- The update dot on the menu-bar icon is now in your accent colour, so it's easier to spot.
+
 ## [0.3.0] - 2026-09-26
 
 ### Added

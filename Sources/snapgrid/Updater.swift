@@ -25,6 +25,8 @@ final class Updater: ObservableObject {
         didSet { if case .available = state, autoInstall { scheduleIdleInstall() } }
     }
     var onStateChange: () -> Void = {}
+    /// Called when a check finds a newer release; the flag tells whether the user asked for the check.
+    var onFound: (Release, Bool) -> Void = { _, _ in }
     /// Lets the app veto an automatic restart, e.g. while Settings has unsaved edits.
     var canInstallNow: () -> Bool = { true }
     private var idleTimer: Timer?
@@ -105,6 +107,7 @@ final class Updater: ObservableObject {
             let release = try GitHubReleases.parseLatest(data)
             UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
             state = release.version > currentVersion ? .available(release) : .upToDate
+            if case .available(let found) = state { onFound(found, userInitiated) }
         } catch {
             state = userInitiated ? .failed(Self.message(error)) : .idle
         }
