@@ -1,7 +1,5 @@
 #if os(macOS)
 import AppKit
-import ApplicationServices
-import ServiceManagement
 import SnapgridCore
 import SwiftUI
 
@@ -61,7 +59,7 @@ final class SettingsModel: ObservableObject {
     @Published var selection: UUID?
     @Published private(set) var recording: RecordTarget?
     @Published private(set) var fileError: String?
-    @Published private(set) var accessibilityGranted = AXIsProcessTrusted()
+    @Published private(set) var accessibilityGranted = Accessibility.isGranted
     @Published var notRegistered: [String] = []
     @Published var alert: String?
 
@@ -69,6 +67,7 @@ final class SettingsModel: ObservableObject {
     var onSave: () -> Void = {}
     var pauseHotKeys: (Bool) -> Void = { _ in }
     var onLoginChanged: () -> Void = {}
+    var onLocationChanged: () -> Void = {}
     private var savedText = ""
     private var monitor: Any?
 
@@ -255,30 +254,62 @@ final class SettingsModel: ObservableObject {
 
     // MARK: App status
 
-    var canLaunchAtLogin: Bool { Bundle.main.bundleURL.pathExtension == "app" }
+    var canLaunchAtLogin: Bool { LoginItem.isAvailable }
 
     var launchAtLogin: Bool {
-        get { SMAppService.mainApp.status == .enabled }
+        get { LoginItem.isEnabled }
         set {
             objectWillChange.send()
-            do {
-                if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-            } catch {
-                alert = "Launch at login: \(error.localizedDescription)"
-            }
+            do { try LoginItem.set(newValue) } catch { alert = "Launch at login: \(error.localizedDescription)" }
             onLoginChanged()
         }
     }
 
     func refreshStatus() {
-        let granted = AXIsProcessTrusted()
+        let granted = Accessibility.isGranted
         if granted != accessibilityGranted { accessibilityGranted = granted }
     }
 
-    func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
+    func openAccessibilitySettings() { Accessibility.request() }
+
+    // MARK: iCloud Drive
+
+    let cloud = CloudSync.iCloudDrive
+    /// Set when turning sync on finds different settings from another Mac in iCloud Drive.
+    @Published var cloudChoicePending = false
+
+    var iCloudSync: Bool {
+        get { cloud.isEnabled(for: configURL) }
+        set {
+            objectWillChange.send()
+            if newValue, cloud.hasCloudConfig,
+               (try? String(contentsOf: cloud.configURL, encoding: .utf8)) != (try? String(contentsOf: configURL, encoding: .utf8)) {
+                cloudChoicePending = true
+                return
+            }
+            do {
+                if newValue { try cloud.enable(for: configURL, useCloudCopy: false) } else { try cloud.disable(for: configURL) }
+                onLocationChanged()
+            } catch {
+                alert = "iCloud Drive sync: \(error.localizedDescription)"
+            }
         }
+    }
+
+    func enableCloudSync(useCloudCopy: Bool) {
+        objectWillChange.send()
+        do {
+            try cloud.enable(for: configURL, useCloudCopy: useCloudCopy)
+            onLocationChanged()
+            if useCloudCopy { revert() }
+        } catch {
+            alert = "iCloud Drive sync: \(error.localizedDescription)"
+        }
+    }
+
+    var configLocation: String {
+        iCloudSync ? "iCloud Drive › Snapgrid › config.toml"
+            : (configURL.path as NSString).abbreviatingWithTildeInPath
     }
 }
 

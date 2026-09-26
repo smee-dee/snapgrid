@@ -339,19 +339,39 @@ private struct GeneralTab: View {
                     }
                 }
             }
+            Section {
+                Toggle("Sync settings with iCloud Drive", isOn: $model.iCloudSync)
+                    .disabled(!model.cloud.isAvailable)
+            } header: {
+                Text("Sync")
+            } footer: {
+                Text(model.cloud.isAvailable
+                     ? "Keeps config.toml in iCloud Drive › Snapgrid so your other Macs use the same shortcuts. Launch at login stays per Mac."
+                     : "Turn on iCloud Drive in System Settings › Apple Account › iCloud to sync.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Config file") {
                 LabeledContent("Location") {
-                    Text((model.configURL.path as NSString).abbreviatingWithTildeInPath).textSelection(.enabled)
+                    Text(model.configLocation).textSelection(.enabled)
                 }
                 HStack {
-                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([model.configURL]) }
-                    Button("Open in Editor") { NSWorkspace.shared.open(model.configURL) }
+                    Button("Show in Finder") {
+                        NSWorkspace.shared.activateFileViewerSelecting([model.configURL.resolvingSymlinksInPath()])
+                    }
+                    Button("Open in Editor") { NSWorkspace.shared.open(model.configURL.resolvingSymlinksInPath()) }
                     Spacer()
                     Button("Import from Divvy…") { model.importDivvy() }
                 }
             }
         }
         .formStyle(.grouped)
+        .confirmationDialog("iCloud Drive already has Snapgrid settings", isPresented: $model.cloudChoicePending) {
+            Button("Use the Settings from iCloud") { model.enableCloudSync(useCloudCopy: true) }
+            Button("Replace Them with This Mac's") { model.enableCloudSync(useCloudCopy: false) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Another Mac saved different shortcuts there. Whichever you don't choose is kept as config.toml.bak.")
+        }
         .task {
             while !Task.isCancelled {
                 model.refreshStatus()

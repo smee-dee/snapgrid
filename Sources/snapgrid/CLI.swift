@@ -51,6 +51,8 @@ enum CLI {
     }
 
     static func write(_ text: String, to url: URL, force: Bool) throws {
+        // An atomic write would replace a symlink (iCloud sync) with a plain file.
+        let url = url.resolvingSymlinksInPath()
         let fm = FileManager.default
         if fm.fileExists(atPath: url.path) {
             guard force else {

@@ -34,16 +34,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setIcon(armed: false)
         installMainMenu()
 
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        if !AXIsProcessTrustedWithOptions(options) {
-            log("Accessibility permission missing — grant it in System Settings › Privacy & Security › Accessibility")
-        }
-
-        let firstRun = !FileManager.default.fileExists(atPath: configURL.path)
-        if firstRun { try? CLI.writeDefaultConfig(to: configURL, force: false) }
+        let hadConfig = FileManager.default.fileExists(atPath: configURL.path)
+        if !hadConfig { try? CLI.writeDefaultConfig(to: configURL, force: false) }
         reload()
         watchConfigDirectory()
-        if firstRun { showSettings() }
+
+        if !UserDefaults.standard.bool(forKey: OnboardingModel.completedKey) {
+            showOnboarding(currentConfig: hadConfig ? config : nil)
+        } else if !AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary) {
+            log("Accessibility permission missing — grant it in System Settings › Privacy & Security › Accessibility")
+        }
         DistributedNotificationCenter.default().addObserver(
             forName: reloadNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reload() }
@@ -72,10 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             log("config error: \(error)")
         }
         registerHotKeys()
+        if let settingsModel, settingsModel.recording == nil, !settingsModel.isDirty { settingsModel.revert() }
     }
 
+    /// Watches the directory of the real file, which is in iCloud Drive when sync is on.
     private func watchConfigDirectory() {
-        let dir = configURL.deletingLastPathComponent()
+        watcher?.cancel()
+        let dir = configURL.resolvingSymlinksInPath().deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let fd = open(dir.path, O_EVTONLY)
         guard fd >= 0 else { return }
@@ -210,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "Setup Assistant…", action: #selector(showOnboardingFromMenu), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Reload Config", action: #selector(reload), keyEquivalent: "r"))
         menu.addItem(NSMenuItem(title: "Edit Config File", action: #selector(openConfig), keyEquivalent: "e"))
         menu.addItem(NSMenuItem(title: "Show Config in Finder", action: #selector(revealConfig), keyEquivalent: ""))
@@ -230,11 +235,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !FileManager.default.fileExists(atPath: configURL.path) {
             try? CLI.writeDefaultConfig(to: configURL, force: false)
         }
-        NSWorkspace.shared.open(configURL)
+        NSWorkspace.shared.open(configURL.resolvingSymlinksInPath())
     }
 
     @objc private func revealConfig() {
-        NSWorkspace.shared.activateFileViewerSelecting([configURL])
+        NSWorkspace.shared.activateFileViewerSelecting([configURL.resolvingSymlinksInPath()])
     }
 
     @objc private func openAccessibility() {
@@ -282,8 +287,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if paused { self?.unregisterHotKeys() } else { self?.registerHotKeys() }
         }
         model.onLoginChanged = { [weak self] in self?.rebuildMenu() }
+        model.onLocationChanged = { [weak self] in
+            self?.watchConfigDirectory()
+            self?.reload()
+        }
         settingsModel = model
         return model
+    }
+
+    // MARK: Setup assistant
+
+    private var onboardingWindow: NSWindow?
+
+    @objc private func showOnboardingFromMenu() {
+        showOnboarding(currentConfig: config)
+    }
+
+    private func showOnboarding(currentConfig: Config?) {
+        if onboardingWindow == nil {
+            let model = OnboardingModel(configURL: configURL, currentConfig: currentConfig)
+            model.onApply = { [weak self] in
+                guard let self else { return nil }
+                self.watchConfigDirectory()
+                self.reload()
+                return self.configError == nil ? self.config : nil
+            }
+            model.onFinish = { [weak self] openSettings in
+                self?.onboardingWindow?.close()
+                if openSettings { self?.showSettings() }
+            }
+            let window = NSWindow(contentViewController: NSHostingController(rootView: OnboardingView(model: model)))
+            window.title = "Snapgrid Setup"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.center()
+            onboardingWindow = window
+        }
+        if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+        onboardingWindow?.makeKeyAndOrderFront(nil)
     }
 
     /// Opening the app again (Finder, Spotlight) while it runs shows Settings.
@@ -318,7 +360,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        settingsModel?.stopRecording()
+        if let window = notification.object as? NSWindow, window === onboardingWindow {
+            // Closing early counts too; the assistant stays available in the menu.
+            UserDefaults.standard.set(true, forKey: OnboardingModel.completedKey)
+            onboardingWindow = nil
+        } else {
+            settingsModel?.stopRecording()
+        }
     }
 }
 
