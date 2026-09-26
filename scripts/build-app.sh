@@ -29,8 +29,8 @@ trap 'rm -rf "$STAGE"' EXIT
 APP=$STAGE/Snapgrid.app
 BUNDLE_ID=dev.snapgrid.Snapgrid
 VERSION=$(sed -n 's/.*static let version = "\(.*\)"/\1/p' Sources/snapgrid/CLI.swift)
-# "owner/repo" whose GitHub Releases the app checks for updates; defaults to the `github` remote.
-UPDATE_REPO=${UPDATE_REPO:-$(git remote get-url github 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//')}
+# "owner/repo" whose GitHub Releases the app checks for updates; defaults to the `origin` remote.
+UPDATE_REPO=${UPDATE_REPO:-$(git remote get-url origin 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/]+/[^/]+)$#\1#p' | sed 's/\.git$//')}
 
 swift build -c release --arch arm64
 BIN=$(swift build -c release --arch arm64 --show-bin-path)/snapgrid

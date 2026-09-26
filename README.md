@@ -12,12 +12,18 @@ A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on m
 - A **setup assistant** on first launch (and later under menu bar › Setup Assistant…) walks through Accessibility permission, then lets you keep your config, import from Divvy, use settings from iCloud Drive, or start with the examples.
 - **Sync with iCloud Drive** (Settings › General) moves `config.toml` to iCloud Drive › Snapgrid and leaves a symlink at `~/.config/snapgrid/config.toml`, so the CLI and editors work as before. Edits from another Mac reload automatically. Apple's iCloud key-value store would need an iCloud entitlement, which requires a paid developer account; iCloud Drive doesn't.
 
-## Install
+## Download
+
+1. Download `Snapgrid-<version>.zip` from the [latest release](https://github.com/smee-dee/snapgrid/releases/latest), unzip it, and move `Snapgrid.app` to Applications.
+2. Open it. The first time, macOS says it can't verify the developer. Go to System Settings › Privacy & Security, click **Open Anyway**, and confirm. This is only needed once; later updates install from inside the app.
+3. The setup assistant walks you through Accessibility permission and your shortcuts.
+
+## Build from source
 
 You need Xcode or the Command Line Tools (for `swift`).
 
 ```bash
-git clone <this repo> snapgrid && cd snapgrid
+git clone https://github.com/smee-dee/snapgrid.git && cd snapgrid
 swift test                                 # optional: run the unit tests
 SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh --install
 ```
@@ -34,10 +40,10 @@ SIGN_IDENTITY="Apple Development: you@example.com (TEAMID)" scripts/build-app.sh
 Releases are published on GitHub, and the app updates itself from them:
 
 1. Bump `static let version` in `Sources/snapgrid/CLI.swift` and commit.
-2. Run `SIGN_IDENTITY="Apple Development: …" scripts/release.sh`. It needs the GitHub CLI (`gh auth login`) and a `github` git remote. It pushes to `main` on GitHub, builds and signs `Snapgrid-<version>.zip`, and publishes release `v<version>` with the zip attached.
+2. Run `SIGN_IDENTITY="Apple Development: …" scripts/release.sh`. It needs the GitHub CLI (`gh auth login`) and `origin` pointing at the GitHub repo. It pushes to `main` on GitHub, builds and signs `Snapgrid-<version>.zip`, and publishes release `v<version>` with the zip attached.
 3. Installed copies notice the release within a day, or right away with menu bar › Check for Updates…. **Install and Restart** downloads the zip and installs it only if it's signed by the same team as the running app. Accessibility permission carries over, and nothing is re-quarantined, so there's no Gatekeeper prompt after the first install.
 
-Always release with the same certificate. The repo the app checks is written into `Info.plist` at build time: the `github` remote, or `UPDATE_REPO=owner/repo`. Builds without one simply have no update button. `scripts/build-app.sh --zip` alone writes the zip without publishing it. Don't commit binaries to git: they bloat the history and go stale.
+Always release with the same certificate. The repo the app checks is written into `Info.plist` at build time: the `origin` remote, or `UPDATE_REPO=owner/repo`. Builds without one simply have no update button. `scripts/build-app.sh --zip` alone writes the zip without publishing it. Don't commit binaries to git: they bloat the history and go stale.
 
 People who receive a zip signed with an Apple Development certificate will see macOS block it the first time, because only Developer ID builds that Apple has notarized open without a warning. They can allow it once under System Settings › Privacy & Security › "Open Anyway", or run `xattr -dr com.apple.quarantine /Applications/Snapgrid.app`. Then they grant Accessibility as usual. To avoid the warning entirely you need a paid Apple Developer account, a "Developer ID Application" identity, and `xcrun notarytool submit … --wait` followed by `xcrun stapler staple`.
 
