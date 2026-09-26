@@ -68,7 +68,8 @@ if [[ -z "${SKIP_CI:-}" ]]; then
   echo "Waiting for CI on ${SHA:0:7}…"
   RUN=""
   for _ in $(seq 1 30); do
-    RUN=$(gh run list --repo "$REPO" --workflow tests.yml --commit "$SHA" --json databaseId --jq '.[0].databaseId // empty')
+    RUN=$(gh run list --repo "$REPO" --workflow tests.yml --commit "$SHA" --event push \
+      --json databaseId --jq '.[0].databaseId // empty')
     [[ -n "$RUN" ]] && break
     sleep 5
   done
