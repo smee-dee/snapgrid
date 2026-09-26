@@ -4,6 +4,8 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-26
+
 ### Added
 - A dot on the menu-bar icon shows that an update is waiting.
 - "Install updates automatically" in Settings › General › Updates (off by default). The update installs once the Mac has been idle for 10 minutes, but never while the grid panel is open or Settings has unsaved changes.
@@ -38,7 +40,8 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 - Sync with iCloud Drive.
 - Check for Updates with in-app install, which only accepts updates signed by the same developer.
 
-[Unreleased]: https://github.com/smee-dee/snapgrid/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/smee-dee/snapgrid/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/smee-dee/snapgrid/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/smee-dee/snapgrid/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/smee-dee/snapgrid/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/smee-dee/snapgrid/compare/v0.1.0...v0.2.0
