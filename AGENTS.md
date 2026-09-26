@@ -9,12 +9,16 @@ Swift package, Apple frameworks only (no third-party packages). `Sources/Snapgri
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --scratch-path ~/Library/Caches/snapgrid-build`
 - `scripts/build-app.sh` already signs in a temp dir outside iCloud; don't move signing back into `build/`.
 
+## Changelog
+
+Every user-visible change gets a line in `CHANGELOG.md` under `## [Unreleased]`, in the same commit as the change. Use Keep a Changelog headings (`### Added`, `### Changed`, `### Fixed`, `### Removed`) and write for users, not in commit-message style. Internal-only changes (tests, refactors, agent docs) don't need an entry.
+
 ## Publish an update
 
 1. Tests pass (command above) and the working tree is clean.
-2. Bump `static let version` in `Sources/snapgrid/CLI.swift` (semver; must be higher than the latest release) and commit.
+2. Bump `static let version` in `Sources/snapgrid/CLI.swift` (semver; must be higher than the latest release). In `CHANGELOG.md`, rename `## [Unreleased]` to `## [<version>] - <YYYY-MM-DD>`, add a new empty `## [Unreleased]` above it, and update the compare links at the bottom. Commit both.
 3. Find the signing identity: `security find-identity -v -p codesigning`, use the "Apple Development: …" identity of team `8NQ55VC3K2`. **Never release with another certificate or ad hoc**: installed copies only accept updates signed by that team, and Accessibility permission is tied to it.
-4. `SIGN_IDENTITY="<identity>" NOTES="<what changed>" scripts/release.sh`. It pushes `HEAD` to `main` on `origin` (GitHub, `smee-dee/snapgrid`), builds and signs `build/Snapgrid-<version>.zip`, and creates release `v<version>`. This is public: get the user's go-ahead first.
+4. `SIGN_IDENTITY="<identity>" scripts/release.sh`. The release notes are the version's `CHANGELOG.md` section; the script refuses to run without one. It pushes `HEAD` to `main` on `origin` (GitHub, `smee-dee/snapgrid`), builds and signs `build/Snapgrid-<version>.zip`, and creates release `v<version>`. This is public: get the user's go-ahead first.
 5. Verify:
    - `curl -fsSL https://api.github.com/repos/smee-dee/snapgrid/releases/latest` shows the new tag with a `Snapgrid-<version>.zip` asset.
    - Download and unzip it with `ditto -x -k`, then
