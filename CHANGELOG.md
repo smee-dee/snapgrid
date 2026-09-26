@@ -4,6 +4,8 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-26
+
 ### Added
 - Screen margins separate from the gap between windows (Settings › General › Grid, or `margin` in the config), like Divvy's screen and window margins.
 - The grid panel has + and − buttons for its columns and rows, and remembers the size you picked until you change the grid in Settings.
@@ -46,7 +48,8 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 - Sync with iCloud Drive.
 - Check for Updates with in-app install, which only accepts updates signed by the same developer.
 
-[Unreleased]: https://github.com/smee-dee/snapgrid/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/smee-dee/snapgrid/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/smee-dee/snapgrid/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/smee-dee/snapgrid/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/smee-dee/snapgrid/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/smee-dee/snapgrid/compare/v0.2.0...v0.2.1
