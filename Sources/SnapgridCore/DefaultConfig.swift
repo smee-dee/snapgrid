@@ -9,7 +9,8 @@ public enum DefaultConfig {
 
     [settings]
     grid = "6x6"            # default grid (columns x rows) for shortcuts without their own grid
-    gap = 0                 # points between windows and around screen edges
+    gap = 0                 # points between windows (and at the screen edges unless margin is set)
+    # margin = "0 0 0 0"    # screen edges: one number, or "top right bottom left"
     leader = "ctrl+alt+space"   # arms local shortcuts (global = false), like opening the Divvy panel
     leader_timeout = 3      # seconds local shortcuts stay armed
 

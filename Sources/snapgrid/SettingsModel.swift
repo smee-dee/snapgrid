@@ -53,6 +53,7 @@ final class SettingsModel: ObservableObject {
 
     @Published var grid = GridSize(columns: 6, rows: 6)
     @Published var gap: Double = 0
+    @Published var margin: Insets?
     @Published var leader: KeyCombo?
     @Published var leaderTimeout: Double = 3
     @Published var showGrid = true
@@ -82,6 +83,7 @@ final class SettingsModel: ObservableObject {
     func load(_ config: Config) {
         grid = config.settings.grid
         gap = config.settings.gap
+        margin = config.settings.margin
         leader = config.settings.leader
         leaderTimeout = config.settings.leaderTimeout
         showGrid = config.settings.showGrid
@@ -109,6 +111,7 @@ final class SettingsModel: ObservableObject {
         var config = Config()
         config.settings.grid = grid
         config.settings.gap = gap
+        config.settings.margin = margin
         config.settings.leader = leader
         config.settings.leaderTimeout = leaderTimeout
         config.settings.showGrid = showGrid

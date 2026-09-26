@@ -25,19 +25,19 @@ public struct Rect: Equatable, CustomStringConvertible {
 
 public enum Geometry {
     /// Frame for a cell selection on a screen's visible area. `gap` is the spacing between
-    /// adjacent windows and between windows and the screen edge.
-    public static func frame(for cells: CellRange, grid: GridSize, in visible: Rect, gap: Double = 0) -> Rect {
-        let half = gap / 2
-        let usable = Rect(x: visible.x + half, y: visible.y + half,
-                          width: visible.width - gap, height: visible.height - gap)
-        let cellW = usable.width / Double(grid.columns)
-        let cellH = usable.height / Double(grid.rows)
-        let raw = Rect(x: usable.x + Double(cells.x) * cellW,
-                       y: usable.y + Double(cells.y) * cellH,
-                       width: Double(cells.w) * cellW,
-                       height: Double(cells.h) * cellH)
-        return Rect(x: (raw.x + half).rounded(), y: (raw.y + half).rounded(),
-                    width: (raw.width - gap).rounded(), height: (raw.height - gap).rounded())
+    /// adjacent windows; `margin` the space at the screen edges (the gap when nil).
+    public static func frame(for cells: CellRange, grid: GridSize, in visible: Rect,
+                             gap: Double = 0, margin: Insets? = nil) -> Rect {
+        let m = margin ?? Insets(all: gap)
+        let usable = Rect(x: visible.x + m.left, y: visible.y + m.top,
+                          width: visible.width - m.left - m.right, height: visible.height - m.top - m.bottom)
+        // Each cell carries one gap on its trailing side; the last one's falls outside the usable area.
+        let cellW = (usable.width + gap) / Double(grid.columns)
+        let cellH = (usable.height + gap) / Double(grid.rows)
+        return Rect(x: (usable.x + Double(cells.x) * cellW).rounded(),
+                    y: (usable.y + Double(cells.y) * cellH).rounded(),
+                    width: (Double(cells.w) * cellW - gap).rounded(),
+                    height: (Double(cells.h) * cellH - gap).rounded())
     }
 
     /// Index of the screen a window belongs to: the one containing its centre, else the one it overlaps most.

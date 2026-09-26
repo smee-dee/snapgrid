@@ -27,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updater = Updater()
     private let overlay = GridOverlay()
     private var leaderArmed = false
+    /// Display indexes (`NSScreen.screens`) the grid opened on and is showing on now.
+    private var overlayScreens: (first: Int, current: Int)?
 
     init(configURL: URL) {
         self.configURL = configURL
@@ -162,15 +164,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `leader_timeout` seconds when the grid is turned off.
     private func armLeader() {
         guard let config else { return }
-        if overlay.isVisible {
-            disarmLeader()
+        if overlay.isVisible, let screens = overlayScreens {
+            // Like Divvy's monitor cycling: each press moves the grid on, the last display closes it.
+            let order = Geometry.spatialOrder(WindowMover.screens().map(\.frame))
+            if let pos = order.firstIndex(of: screens.current), order[(pos + 1) % order.count] != screens.first {
+                showOverlay(on: order[(pos + 1) % order.count], config: config)
+            } else {
+                disarmLeader()
+            }
             return
         }
         disarmLeader()
         for shortcut in config.shortcuts where !shortcut.global {
             if let id = register(shortcut.combo, { [weak self] in
+                let screen = self?.overlayScreens?.current
                 self?.disarmLeader()
-                self?.run(shortcut)
+                self?.run(shortcut.action, name: shortcut.name, screen: screen)
             }) { localIDs.append(id) }
         }
         if !config.shortcuts.contains(where: { !$0.global && $0.combo == KeyCombo(modifiers: [], key: .code(53)) }),
@@ -179,22 +188,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         setIcon(armed: true)
         if config.settings.showGrid, let screen = WindowMover.focusedScreen() {
-            let grid = config.settings.grid
-            overlay.show(grid: grid, on: screen, app: NSWorkspace.shared.frontmostApplication,
-                         onSelect: { [weak self] cells in
-                             self?.disarmLeader()
-                             self?.run(.place(cells, grid: grid), name: "grid selection")
-                         },
-                         onSettings: { [weak self] in
-                             // Close after the click finishes, so the button isn't freed mid-action.
-                             DispatchQueue.main.async {
-                                 MainActor.assumeIsolated {
-                                     self?.disarmLeader()
-                                     self?.showSettings()
-                                 }
-                             }
-                         },
-                         onDismiss: { [weak self] in self?.disarmLeader() })
+            overlayScreens = (screen, screen)
+            showOverlay(on: screen, config: config)
             return
         }
         let timeout = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.disarmLeader() } }
@@ -202,9 +197,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + config.settings.leaderTimeout, execute: timeout)
     }
 
+    private func showOverlay(on screen: Int, config: Config) {
+        guard NSScreen.screens.indices.contains(screen) else { return }
+        overlayScreens?.current = screen
+        let defaultGrid = config.settings.grid
+        overlay.show(grid: popupGrid(default: defaultGrid), on: NSScreen.screens[screen],
+                     app: NSWorkspace.shared.frontmostApplication,
+                     onSelect: { [weak self] cells, grid in
+                         self?.disarmLeader()
+                         self?.run(.place(cells, grid: grid), name: "grid selection", screen: screen)
+                     },
+                     onGridChange: { [weak self] grid in self?.rememberPopupGrid(grid, default: defaultGrid) },
+                     onSettings: { [weak self] in
+                         // Close after the click finishes, so the button isn't freed mid-action.
+                         DispatchQueue.main.async {
+                             MainActor.assumeIsolated {
+                                 self?.disarmLeader()
+                                 self?.showSettings()
+                             }
+                         }
+                     },
+                     onDismiss: { [weak self] in self?.disarmLeader() })
+    }
+
+    /// The popup keeps the size last set with its buttons until the grid in Settings changes.
+    private func popupGrid(default grid: GridSize) -> GridSize {
+        let defaults = UserDefaults.standard
+        guard defaults.string(forKey: "popupGridBase") == grid.description,
+              let saved = defaults.string(forKey: "popupGrid").flatMap(GridSize.parse) else { return grid }
+        return saved
+    }
+
+    private func rememberPopupGrid(_ grid: GridSize, default base: GridSize) {
+        UserDefaults.standard.set(grid.description, forKey: "popupGrid")
+        UserDefaults.standard.set(base.description, forKey: "popupGridBase")
+    }
+
     private func disarmLeader() {
         leaderTimeout?.cancel()
         leaderTimeout = nil
+        overlayScreens = nil
         overlay.hide()
         HotKeyCenter.shared.unregisterAll(localIDs)
         localIDs = []
@@ -215,9 +247,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         run(shortcut.action, name: shortcut.name)
     }
 
-    private func run(_ action: Action, name: String) {
+    private func run(_ action: Action, name: String, screen: Int? = nil) {
         do {
-            try WindowMover.perform(action, gap: config?.settings.gap ?? 0)
+            try WindowMover.perform(action, settings: config?.settings ?? .init(), screen: screen)
         } catch WindowMoverError.notTrusted {
             NSSound.beep()
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary

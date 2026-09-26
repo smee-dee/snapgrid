@@ -290,7 +290,7 @@ private struct GeneralTab: View {
 
     var body: some View {
         Form {
-            Section("Grid") {
+            Section {
                 GridSizeFields(grid: $model.grid)
                 LabeledContent("Gap between windows") {
                     HStack {
@@ -298,6 +298,28 @@ private struct GeneralTab: View {
                         Text("\(Int(model.gap)) pt").monospacedDigit().frame(width: 44, alignment: .trailing)
                     }
                 }
+                Toggle("Different margins at the screen edges", isOn: Binding(
+                    get: { model.margin != nil },
+                    set: { model.margin = $0 ? Insets(all: model.gap) : nil }))
+                if model.margin != nil {
+                    LabeledContent("Screen margins (pt)") {
+                        HStack {
+                            ForEach([("Top", \Insets.top), ("Left", \.left), ("Bottom", \.bottom), ("Right", \.right)], id: \.0) { label, edge in
+                                TextField(label, value: Binding(get: { model.margin?[keyPath: edge] ?? 0 },
+                                                                set: { model.margin?[keyPath: edge] = $0 }),
+                                          format: .number)
+                                    .frame(width: 48)
+                                    .help(label)
+                                Text(label).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Grid")
+            } footer: {
+                Text("The gap also applies at the screen edges unless you set different margins. The grid popup starts with this size; its + and − buttons change it for next time.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 LabeledContent("Leader key") {
@@ -323,7 +345,7 @@ private struct GeneralTab: View {
                 Text("Leader key")
             } footer: {
                 Text(model.showGrid
-                     ? "Like Divvy's panel: a grid appears on the focused window's display. Drag across it and release to place the window, or press one of the “After the leader key” shortcuts. Esc, a click elsewhere or the leader key again closes it."
+                     ? "Like Divvy's panel: a grid appears on the focused window's display. Drag across it and release to place the window, or press one of the “After the leader key” shortcuts. With several displays, the leader key again moves it to the next one. Esc or a click elsewhere closes it."
                      : "Shortcuts set to “After the leader key” work for this long after you press it. Esc cancels.")
                     .font(.caption).foregroundStyle(.secondary)
             }

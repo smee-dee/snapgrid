@@ -32,7 +32,8 @@ enum WindowMover {
         return NSScreen.screens.map { ScreenInfo(frame: convert($0.frame), visible: convert($0.visibleFrame)) }
     }
 
-    static func perform(_ action: Action, gap: Double) throws {
+    /// `screen` (an index into `NSScreen.screens`) overrides the display a placement goes to.
+    static func perform(_ action: Action, settings: SnapgridCore.Settings, screen: Int? = nil) throws {
         guard AXIsProcessTrusted() else { throw WindowMoverError.notTrusted }
         guard let app = NSWorkspace.shared.frontmostApplication else { throw WindowMoverError.noWindow }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
@@ -47,7 +48,9 @@ enum WindowMover {
         let target: Rect
         switch action {
         case .place(let cells, let grid):
-            target = Geometry.frame(for: cells, grid: grid, in: all[index].visible, gap: gap)
+            let dest = screen.flatMap { all.indices.contains($0) ? $0 : nil } ?? index
+            target = Geometry.frame(for: cells, grid: grid, in: all[dest].visible,
+                                    gap: settings.gap, margin: settings.margin)
         case .nextScreen, .previousScreen:
             guard all.count > 1 else { return }
             let order = Geometry.spatialOrder(all.map(\.frame))
@@ -59,17 +62,17 @@ enum WindowMover {
         setFrame(window, target, app: axApp)
     }
 
-    /// The display showing the focused window, or the one under the mouse.
-    static func focusedScreen() -> NSScreen? {
+    /// Index into `NSScreen.screens` of the display showing the focused window, or the one under the mouse.
+    static func focusedScreen() -> Int? {
         if AXIsProcessTrusted(), let app = NSWorkspace.shared.frontmostApplication,
            let window = copyElement(AXUIElementCreateApplication(app.processIdentifier), kAXFocusedWindowAttribute),
            let current = frame(of: window),
            let index = Geometry.screenIndex(for: current, screens: screens().map(\.frame)),
            index < NSScreen.screens.count {
-            return NSScreen.screens[index]
+            return index
         }
         let mouse = NSEvent.mouseLocation
-        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        return NSScreen.screens.firstIndex { NSMouseInRect(mouse, $0.frame, false) } ?? (NSScreen.screens.isEmpty ? nil : 0)
     }
 
     private static func copyElement(_ element: AXUIElement, _ attribute: String) -> AXUIElement? {

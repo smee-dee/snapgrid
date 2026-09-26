@@ -75,12 +75,33 @@ public enum DivvyImporter {
         public var otherKeys: [String]
         /// The hotkey that opened Divvy's panel, if enabled (`globalHotkey`, Carbon modifiers).
         public var panelHotkey: (keyCode: Int, carbonFlags: Int)?
+        /// The panel's default grid (`defaultColumnCount` × `defaultRowCount`).
+        public var defaultGrid: GridSize?
+        /// Set when margins are on (`enableMargins`).
+        public var margins: Margins?
+
+        public struct Margins: Equatable {
+            public var screen: Insets
+            public var windowWidth: Double, windowHeight: Double
+            public init(screen: Insets, windowWidth: Double, windowHeight: Double) {
+                self.screen = screen; self.windowWidth = windowWidth; self.windowHeight = windowHeight
+            }
+        }
 
         public init(shortcuts: [DivvyShortcut], otherKeys: [String],
-                    panelHotkey: (keyCode: Int, carbonFlags: Int)? = nil) {
+                    panelHotkey: (keyCode: Int, carbonFlags: Int)? = nil,
+                    defaultGrid: GridSize? = nil, margins: Margins? = nil) {
             self.shortcuts = shortcuts; self.otherKeys = otherKeys; self.panelHotkey = panelHotkey
+            self.defaultGrid = defaultGrid; self.margins = margins
         }
     }
+
+    /// Keys `readPreferences` turns into settings.
+    static let importedKeys: Set<String> = [
+        "shortcuts", "globalHotkey", "useGlobalHotkey", "defaultColumnCount", "defaultRowCount",
+        "enableMargins", "defaultScreenMarginTop", "defaultScreenMarginRight", "defaultScreenMarginBottom",
+        "defaultScreenMarginLeft", "defaultWindowMarginWidth", "defaultWindowMarginHeight",
+    ]
 
     /// Reads a Divvy preferences plist (binary or XML, e.g. from `defaults export com.mizage.direct.Divvy -`).
     public static func readPreferences(_ data: Data) throws -> Preferences {
@@ -93,14 +114,27 @@ public enum DivvyImporter {
         guard let archive = dict["shortcuts"] as? Data else {
             throw DivvyImportError(message: "no 'shortcuts' entry found — is this Divvy's preference file?")
         }
-        let others = dict.keys.filter { $0 != "shortcuts" }.sorted()
+        let others = dict.keys.filter { !importedKeys.contains($0) }.sorted()
         var hotkey: (keyCode: Int, carbonFlags: Int)?
         if (dict["useGlobalHotkey"] as? Bool) ?? true,
            let h = dict["globalHotkey"] as? [String: Any],
            let code = h["keyCode"] as? Int, let flags = h["modifiers"] as? Int {
             hotkey = (code, flags)
         }
-        return Preferences(shortcuts: try decodeShortcuts(archive), otherKeys: others, panelHotkey: hotkey)
+        func number(_ key: String) -> Double? { (dict[key] as? NSNumber)?.doubleValue }
+        var grid: GridSize?
+        if let c = number("defaultColumnCount"), let r = number("defaultRowCount") {
+            grid = GridSize.parse("\(Int(c))x\(Int(r))")
+        }
+        var margins: Preferences.Margins?
+        if (dict["enableMargins"] as? Bool) == true {
+            let screen = Insets(top: number("defaultScreenMarginTop") ?? 0, right: number("defaultScreenMarginRight") ?? 0,
+                                bottom: number("defaultScreenMarginBottom") ?? 0, left: number("defaultScreenMarginLeft") ?? 0)
+            margins = .init(screen: screen, windowWidth: number("defaultWindowMarginWidth") ?? 0,
+                            windowHeight: number("defaultWindowMarginHeight") ?? 0)
+        }
+        return Preferences(shortcuts: try decodeShortcuts(archive), otherKeys: others, panelHotkey: hotkey,
+                           defaultGrid: grid, margins: margins)
     }
 
     public static func decodeShortcuts(_ archive: Data) throws -> [DivvyShortcut] {
@@ -157,8 +191,10 @@ public enum DivvyImporter {
 
         var counts: [String: Int] = [:]
         for (_, c) in converted { counts[c.grid.description, default: 0] += 1 }
-        let defaultGrid = counts.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? "6x6"
+        let defaultGrid = prefs.defaultGrid?.description
+            ?? counts.max { $0.value != $1.value ? $0.value < $1.value : $0.key > $1.key }?.key ?? "6x6"
         let hasLocal = prefs.shortcuts.contains { !$0.global && $0.enabled }
+        func number(_ d: Double) -> String { d == d.rounded() ? String(Int(d)) : String(d) }
 
         var out = """
         # Snapgrid config — imported from Divvy (\(source))
@@ -168,9 +204,22 @@ public enum DivvyImporter {
 
         [settings]
         grid = \(TOMLParser.quote(defaultGrid))
-        gap = 0
 
         """
+        if let m = prefs.margins {
+            let gap = min(max(m.windowWidth, 0), 200)
+            if m.windowHeight != m.windowWidth {
+                out += "# NOTE: Divvy used \(number(m.windowWidth)) pt between windows side by side and \(number(m.windowHeight)) pt above each other; Snapgrid uses one gap.\n"
+            }
+            out += "gap = \(number(gap))\n"
+            let screen = Insets(top: min(max(m.screen.top, 0), 500), right: min(max(m.screen.right, 0), 500),
+                                bottom: min(max(m.screen.bottom, 0), 500), left: min(max(m.screen.left, 0), 500))
+            if screen != Insets(all: gap) {
+                out += "margin = \(screen.isUniform ? number(screen.top) : TOMLParser.quote(screen.description))\n"
+            }
+        } else {
+            out += "gap = 0\n"
+        }
         if hasLocal {
             var leader = "ctrl+alt+space"
             var leaderHint = "# Set it to the hotkey you used to open the Divvy panel."

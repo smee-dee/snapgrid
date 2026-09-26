@@ -10,8 +10,8 @@ Divvy was the best grid window manager on the Mac, but it appears to be no longe
 
 - Native arm64 (Apple Silicon), macOS 13 or later, built for macOS 27+.
 - Only Apple frameworks are used: AppKit, SwiftUI, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages.
-- Divvy-style grid shortcuts, with a grid size per shortcut, an optional gap, and moving windows to the next or previous display.
-- **Divvy's panel:** press the **leader key** and a translucent grid appears over the focused window's display. Drag across it and release to place the window there, or press one of Divvy's *local* shortcuts (plain keys such as `l`). Esc, a click elsewhere or the leader key again closes it. The gear at its top right opens Settings.
+- Divvy-style grid shortcuts, with a grid size per shortcut, a gap between windows, separate screen margins, and moving windows to the next or previous display.
+- **Divvy's panel:** press the **leader key** and a translucent grid appears over the focused window's display. Drag across it and release to place the window there, or press one of Divvy's *local* shortcuts (plain keys such as `l`). The + and − buttons below the grid change its columns and rows, and the panel remembers that size. With several displays, pressing the leader key again moves the panel to the next display, and the window goes where the panel is; after the last display it closes. Esc or a click elsewhere closes it too. The gear at its top right opens Settings.
 - Imports your existing Divvy shortcuts with `snapgrid import-divvy`.
 - Runs as a menu-bar item (no Dock icon) with Settings, Reload, Edit Config File, Launch at Login and Quit. The config reloads automatically when you save it.
 - A **Settings** window (menu bar › Settings…, or open the app again) edits everything without touching the file: record shortcuts, drag across a grid to choose where the window goes, and set the grid, gap, leader key and launch at login. It also imports from Divvy and shows Accessibility status and shortcuts another app already uses.
@@ -81,7 +81,8 @@ snapgrid reload                  # or just save the file; the app picks it up
 - **What it converts:**
   - Each Divvy shortcut becomes a `[[shortcut]]` entry with the same grid size, selection and key.
   - Keys are named according to your current keyboard layout.
-  - Divvy local shortcuts get `global = false`, and a `leader` is added. Set the leader to the hotkey you used to open the Divvy panel.
+  - Divvy local shortcuts get `global = false`, and the hotkey that opened the Divvy panel becomes the `leader`.
+  - Divvy's default grid becomes `grid`, and its margins (if turned on) become `gap` and `margin`.
 - **What it leaves commented out, with a `# NOTE:`:** disabled shortcuts, duplicate keys, and selections on a subdivided grid that need checking.
 - **Privacy:** Divvy's preferences also contain your licence key. The importer only lists the names of other settings and never copies their values.
 
@@ -92,7 +93,8 @@ snapgrid reload                  # or just save the file; the app picks it up
 ```toml
 [settings]
 grid = "6x6"              # default grid, columns x rows
-gap = 0                   # points between windows and around screen edges
+gap = 0                   # points between windows (and at the screen edges unless margin is set)
+margin = "10 20"          # optional screen edges: 10, "10 20" (top/bottom, sides) or "top right bottom left"
 leader = "ctrl+alt+space" # arms local shortcuts (optional)
 leader_timeout = 3        # seconds they stay armed when show_grid = false
 show_grid = true          # leader key opens Divvy's click-and-drag grid (default)

@@ -36,6 +36,33 @@ public struct CellRange: Equatable, CustomStringConvertible {
     }
 }
 
+/// Space kept free at the screen edges, in points.
+public struct Insets: Equatable, CustomStringConvertible {
+    public var top: Double, right: Double, bottom: Double, left: Double
+    public init(top: Double, right: Double, bottom: Double, left: Double) {
+        self.top = top; self.right = right; self.bottom = bottom; self.left = left
+    }
+    public init(all: Double) { self.init(top: all, right: all, bottom: all, left: all) }
+
+    public var isUniform: Bool { top == right && right == bottom && bottom == left }
+    /// "top right bottom left", like CSS.
+    public var description: String {
+        [top, right, bottom, left].map { $0 == $0.rounded() ? String(Int($0)) : String($0) }.joined(separator: " ")
+    }
+
+    /// Parses "10" (all sides), "10 20" (top/bottom, left/right) or "10 20 10 20" (top, right, bottom, left).
+    public static func parse(_ s: String) -> Insets? {
+        let v = s.split(separator: " ").compactMap { Double($0) }
+        guard v.count == s.split(separator: " ").count, v.allSatisfy({ (0...500).contains($0) }) else { return nil }
+        switch v.count {
+        case 1: return Insets(all: v[0])
+        case 2: return Insets(top: v[0], right: v[1], bottom: v[0], left: v[1])
+        case 4: return Insets(top: v[0], right: v[1], bottom: v[2], left: v[3])
+        default: return nil
+        }
+    }
+}
+
 public enum Action: Equatable {
     case place(CellRange, grid: GridSize)
     case nextScreen
@@ -58,6 +85,8 @@ public struct Shortcut: Equatable {
 public struct Settings: Equatable {
     public var grid = GridSize(columns: 6, rows: 6)
     public var gap: Double = 0
+    /// Space at the screen edges; nil uses `gap` there too.
+    public var margin: Insets?
     public var leader: KeyCombo?
     public var leaderTimeout: Double = 3
     /// Show Divvy's click-and-drag grid when the leader key is pressed.
@@ -113,7 +142,7 @@ public struct Config: Equatable {
 
         var config = Config()
         let s = doc.tables["settings"] ?? [:]
-        try checkKeys(s, allowed: ["grid", "gap", "leader", "leader_timeout", "show_grid"], context: "[settings]", line: nil)
+        try checkKeys(s, allowed: ["grid", "gap", "margin", "leader", "leader_timeout", "show_grid"], context: "[settings]", line: nil)
         if let v = s["grid"] {
             guard let str = v.stringValue, let g = GridSize.parse(str) else {
                 throw ConfigError(line: nil, message: "[settings] grid must look like \"6x4\"")
@@ -125,6 +154,14 @@ public struct Config: Equatable {
                 throw ConfigError(line: nil, message: "[settings] gap must be a number of points between 0 and 200")
             }
             config.settings.gap = d
+        }
+        if let v = s["margin"] {
+            let parsed = v.doubleValue.flatMap { (0...500).contains($0) ? Insets(all: $0) : nil }
+                ?? v.stringValue.flatMap(Insets.parse)
+            guard let parsed else {
+                throw ConfigError(line: nil, message: "[settings] margin must be points (0–500), or \"top right bottom left\" like \"10 0 10 0\"")
+            }
+            config.settings.margin = parsed
         }
         if let v = s["leader"] {
             guard let str = v.stringValue else { throw ConfigError(line: nil, message: "[settings] leader must be a string") }
@@ -243,6 +280,9 @@ extension Config {
         gap = \(number(settings.gap))
 
         """
+        if let m = settings.margin {
+            out += "margin = \(m.isUniform ? number(m.top) : q(m.description))\n"
+        }
         if let leader = settings.leader {
             out += "leader = \(q(leader.description))\n"
             out += "leader_timeout = \(number(settings.leaderTimeout))\n"

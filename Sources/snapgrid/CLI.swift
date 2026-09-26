@@ -72,6 +72,7 @@ enum CLI {
         catch { throw Failure(message: "\(url.path): \(error)") }
         print("\(url.path): OK")
         print("grid \(config.settings.grid), gap \(config.settings.gap)"
+              + (config.settings.margin.map { ", margin \($0)" } ?? "")
               + (config.settings.leader.map { ", leader \($0) (\(config.settings.leaderTimeout)s)" } ?? ""))
         for s in config.shortcuts {
             let what: String

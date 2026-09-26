@@ -12,16 +12,18 @@ final class GridOverlay {
 
     var isVisible: Bool { panel != nil }
 
+    static let sizes = 1...30
+
     func show(grid: GridSize, on screen: NSScreen, app: NSRunningApplication?,
-              onSelect: @escaping (CellRange) -> Void, onSettings: @escaping () -> Void,
-              onDismiss: @escaping () -> Void) {
+              onSelect: @escaping (CellRange, GridSize) -> Void, onGridChange: @escaping (GridSize) -> Void,
+              onSettings: @escaping () -> Void, onDismiss: @escaping () -> Void) {
         hide()
         let visible = screen.visibleFrame
-        let padding: CGFloat = 16, titleHeight: CGFloat = 28, hintHeight: CGFloat = 16
+        let padding: CGFloat = 16, titleHeight: CGFloat = 28, controlsHeight: CGFloat = 20, hintHeight: CGFloat = 16
         let gridWidth: CGFloat = 400
         let gridHeight = (gridWidth / max(visible.width / visible.height, 0.5)).rounded()
         let size = NSSize(width: gridWidth + 2 * padding,
-                          height: padding + titleHeight + 10 + gridHeight + 10 + hintHeight + padding - 4)
+                          height: padding + titleHeight + 10 + gridHeight + 10 + controlsHeight + 8 + hintHeight + padding - 4)
 
         let panel = OverlayPanel(contentRect: NSRect(origin: .zero, size: size),
                                  styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -55,13 +57,50 @@ final class GridOverlay {
         let gridView = GridSelectView(grid: grid, onSelect: onSelect)
         gridView.frame = NSRect(x: padding, y: y, width: gridWidth, height: gridHeight)
 
-        let hint = NSTextField(labelWithString: "Drag across the grid and release to place the window. Esc closes.")
+        y -= 10 + controlsHeight
+        var controls: [NSView] = []
+        let columns = NSTextField(labelWithString: ""), rows = NSTextField(labelWithString: "")
+        func refresh() {
+            columns.stringValue = "\(gridView.grid.columns) columns"
+            rows.stringValue = "\(gridView.grid.rows) rows"
+        }
+        func change(columns dc: Int, rows dr: Int) {
+            var g = gridView.grid
+            g.columns = min(max(g.columns + dc, Self.sizes.lowerBound), Self.sizes.upperBound)
+            g.rows = min(max(g.rows + dr, Self.sizes.lowerBound), Self.sizes.upperBound)
+            guard g != gridView.grid else { return }
+            gridView.grid = g
+            refresh()
+            onGridChange(g)
+        }
+        for (i, label) in [columns, rows].enumerated() {
+            let x = i == 0 ? padding : padding + gridWidth - 130
+            let what = i == 0 ? "column" : "row"
+            let minus = ActionButton(symbol: "minus.circle", label: "One \(what) fewer", pointSize: 14) {
+                i == 0 ? change(columns: -1, rows: 0) : change(columns: 0, rows: -1)
+            }
+            let plus = ActionButton(symbol: "plus.circle", label: "One \(what) more", pointSize: 14) {
+                i == 0 ? change(columns: 1, rows: 0) : change(columns: 0, rows: 1)
+            }
+            minus.frame = NSRect(x: x, y: y, width: 20, height: controlsHeight)
+            label.frame = NSRect(x: x + 22, y: y + 2, width: 86, height: 16)
+            label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+            label.textColor = .secondaryLabelColor
+            label.alignment = .center
+            plus.frame = NSRect(x: x + 110, y: y, width: 20, height: controlsHeight)
+            controls += [minus, label, plus]
+        }
+        refresh()
+
+        let hint = NSTextField(labelWithString: NSScreen.screens.count > 1
+            ? "Drag across the grid to place the window. Leader key again: next display."
+            : "Drag across the grid and release to place the window. Esc closes.")
         hint.font = .systemFont(ofSize: 11)
         hint.textColor = .secondaryLabelColor
         hint.alignment = .center
-        hint.frame = NSRect(x: padding, y: y - 10 - hintHeight, width: gridWidth, height: hintHeight)
+        hint.frame = NSRect(x: padding, y: y - 8 - hintHeight, width: gridWidth, height: hintHeight)
 
-        for view in [icon, title, settings, gridView, hint] as [NSView] { background.addSubview(view) }
+        for view in [icon, title, settings, gridView, hint] + controls as [NSView] { background.addSubview(view) }
         panel.contentView = background
         panel.setFrameOrigin(NSPoint(x: (visible.midX - size.width / 2).rounded(),
                                      y: (visible.midY - size.height / 2).rounded()))
@@ -91,11 +130,11 @@ private final class OverlayPanel: NSPanel {
 private final class ActionButton: NSButton {
     private let handler: () -> Void
 
-    init(symbol: String, label: String, action: @escaping () -> Void) {
+    init(symbol: String, label: String, pointSize: CGFloat = 15, action: @escaping () -> Void) {
         handler = action
         super.init(frame: .zero)
         image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
-            .withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
+            .withSymbolConfiguration(.init(pointSize: pointSize, weight: .regular))
         isBordered = false
         imagePosition = .imageOnly
         contentTintColor = .secondaryLabelColor
@@ -112,13 +151,15 @@ private final class ActionButton: NSButton {
 }
 
 private final class GridSelectView: NSView {
-    let grid: GridSize
-    let onSelect: (CellRange) -> Void
+    var grid: GridSize {
+        didSet { start = nil; selection = nil; hover = nil; needsDisplay = true }
+    }
+    let onSelect: (CellRange, GridSize) -> Void
     private var start: (x: Int, y: Int)?
     private var selection: CellRange?
     private var hover: (x: Int, y: Int)?
 
-    init(grid: GridSize, onSelect: @escaping (CellRange) -> Void) {
+    init(grid: GridSize, onSelect: @escaping (CellRange, GridSize) -> Void) {
         self.grid = grid
         self.onSelect = onSelect
         super.init(frame: .zero)
@@ -159,7 +200,7 @@ private final class GridSelectView: NSView {
         guard let start else { return }
         let picked = range(start, cell(event))
         self.start = nil
-        onSelect(picked)
+        onSelect(picked, grid)
     }
 
     override func mouseMoved(with event: NSEvent) {

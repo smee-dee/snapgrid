@@ -22,6 +22,19 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(screen.maxY - l.maxY, 10)
     }
 
+    func testMarginsAreSeparateFromGap() {
+        let grid = GridSize(columns: 2, rows: 1)
+        let margin = Insets(top: 5, right: 20, bottom: 0, left: 30)
+        let l = Geometry.frame(for: CellRange(x: 0, y: 0, w: 1, h: 1), grid: grid, in: screen, gap: 10, margin: margin)
+        let r = Geometry.frame(for: CellRange(x: 1, y: 0, w: 1, h: 1), grid: grid, in: screen, gap: 10, margin: margin)
+        XCTAssertEqual(l.x - screen.x, 30)
+        XCTAssertEqual(r.x - l.maxX, 10)
+        XCTAssertEqual(screen.maxX - r.maxX, 20)
+        XCTAssertEqual(l.width, r.width)
+        XCTAssertEqual(l.y - screen.y, 5)
+        XCTAssertEqual(screen.maxY - l.maxY, 0)
+    }
+
     func testScreenIndexAndMove() {
         let a = Rect(x: 0, y: 0, width: 1000, height: 800)
         let b = Rect(x: 1000, y: 0, width: 2000, height: 1000)
@@ -107,7 +120,7 @@ final class DivvyImportTests: XCTestCase {
         let data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
         let prefs = try DivvyImporter.readPreferences(data)
         XCTAssertEqual(prefs.shortcuts, shortcuts)
-        XCTAssertEqual(prefs.otherKeys, ["licenseKey", "useGlobalHotkey"])
+        XCTAssertEqual(prefs.otherKeys, ["licenseKey"])
 
         let text = DivvyImporter.renderConfig(prefs, source: "test")
         XCTAssertFalse(text.contains("secret"))
@@ -151,6 +164,31 @@ final class DivvyImportTests: XCTestCase {
         data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
         text = DivvyImporter.renderConfig(try DivvyImporter.readPreferences(data), source: "test", layoutCharacter: layout)
         XCTAssertEqual(try Config.parse(text).settings.leader?.description, "ctrl+alt+space")
+    }
+
+    func testImportsDefaultGridAndMargins() throws {
+        var domain: [String: Any] = [
+            "shortcuts": try DivvyImporter.encodeShortcuts([]),
+            "defaultColumnCount": 10, "defaultRowCount": 8,
+            "enableMargins": true,
+            "defaultScreenMarginTop": 5, "defaultScreenMarginRight": 10,
+            "defaultScreenMarginBottom": 5, "defaultScreenMarginLeft": 10,
+            "defaultWindowMarginWidth": 8, "defaultWindowMarginHeight": 8,
+            "enableAnimations": true,
+        ]
+        var data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
+        let prefs = try DivvyImporter.readPreferences(data)
+        XCTAssertEqual(prefs.otherKeys, ["enableAnimations"])
+        var config = try Config.parse(DivvyImporter.renderConfig(prefs, source: "test"))
+        XCTAssertEqual(config.settings.grid, GridSize(columns: 10, rows: 8))
+        XCTAssertEqual(config.settings.gap, 8)
+        XCTAssertEqual(config.settings.margin, Insets(top: 5, right: 10, bottom: 5, left: 10))
+
+        domain["enableMargins"] = false
+        data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
+        config = try Config.parse(DivvyImporter.renderConfig(try DivvyImporter.readPreferences(data), source: "test"))
+        XCTAssertEqual(config.settings.gap, 0)
+        XCTAssertNil(config.settings.margin)
     }
 
     func testLayoutLookupNamesCharacterKeys() {

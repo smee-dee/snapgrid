@@ -111,6 +111,8 @@ final class ConfigTests: XCTestCase {
         assertError("[[shortcut]]\nkeys = \"ctrl+a\"\naction = \"next-screen\"\ncells = \"0,0 1x1\"", contains: "only apply")
         assertError("[setings]\ngap = 1", contains: "unknown table")
         assertError("[settings]\ngrid = \"0x4\"", contains: "grid must look like")
+        assertError("[settings]\nmargin = \"1 2 3\"", contains: "margin must be")
+        assertError("[settings]\nmargin = -4", contains: "margin must be")
         assertError("[settings]\nleader = \"ctrl+alt+space\"\n[[shortcut]]\nkeys = \"ctrl+alt+space\"\ncells = \"0,0 1x1\"",
                     contains: "leader key")
     }
@@ -127,9 +129,15 @@ final class ConfigTests: XCTestCase {
         config.shortcuts.append(Shortcut(name: "Quote \"x\"", combo: try KeyCombo.parse("ctrl+keycode:10"),
                                          action: .place(CellRange(x: 1, y: 0, w: 2, h: 1), grid: GridSize(columns: 3, rows: 1)),
                                          global: true))
-        let again = try Config.parse(config.render())
+        var again = try Config.parse(config.render())
         XCTAssertEqual(again.settings, config.settings)
         XCTAssertEqual(again.shortcuts, config.shortcuts)
+
+        for margin in [Insets(all: 12), Insets(top: 25, right: 0, bottom: 4.5, left: 0)] {
+            config.settings.margin = margin
+            again = try Config.parse(config.render())
+            XCTAssertEqual(again.settings.margin, margin)
+        }
 
         config.settings.leader = nil
         XCTAssertFalse(config.render().contains("leader"))

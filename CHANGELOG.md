@@ -4,6 +4,12 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+### Added
+- Screen margins separate from the gap between windows (Settings › General › Grid, or `margin` in the config), like Divvy's screen and window margins.
+- The grid panel has + and − buttons for its columns and rows, and remembers the size you picked until you change the grid in Settings.
+- With several displays, pressing the leader key again moves the grid panel to the next display, and the window is placed on the display where the panel is. After the last display, the panel closes.
+- The Divvy import also brings over Divvy's default grid size and margins.
+
 ## [0.2.3] - 2026-09-26
 
 ### Added
