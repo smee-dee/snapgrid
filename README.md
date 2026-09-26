@@ -58,7 +58,10 @@ Releases are published on GitHub, and the app updates itself from them:
 
 1. Bump `static let version` in `Sources/snapgrid/CLI.swift`, move the `## [Unreleased]` entries in [`CHANGELOG.md`](CHANGELOG.md) under a new `## [<version>] - <date>` heading, and commit.
 2. Run `SIGN_IDENTITY="Apple Development: …" scripts/release.sh`. The release notes come from that changelog section. It needs the GitHub CLI (`gh auth login`) and `origin` pointing at the GitHub repo. It pushes to `main` on GitHub, builds and signs `Snapgrid-<version>.zip`, and publishes release `v<version>` with the zip attached.
-3. Installed copies notice the release within a day, or right away with menu bar › Check for Updates…. A dot on the menu-bar icon shows that an update is waiting. With "Install updates automatically" on (Settings › General, off by default), it installs once the Mac has been idle for 10 minutes, but never while the grid panel is open or Settings has unsaved changes. **Install and Restart** downloads the zip and installs it only if it's signed by the same team as the running app. Accessibility permission carries over, and nothing is re-quarantined, so there's no Gatekeeper prompt after the first install.
+3. Installed copies notice the release within a day, or right away with menu bar › Check for Updates…. A dot on the menu-bar icon shows that an update is waiting. With "Install updates automatically" on (Settings › General, off by default), it installs once the Mac has been idle for 10 minutes, but never while the grid panel is open or Settings has unsaved changes.
+
+   <img src="docs/screenshots/update-dialog.png" width="480" alt="Update dialog with release notes and Install and Restart">
+ **Install and Restart** downloads the zip and installs it only if it's signed by the same team as the running app. Accessibility permission carries over, and nothing is re-quarantined, so there's no Gatekeeper prompt after the first install.
 
 Always release with the same certificate. The repo the app checks is written into `Info.plist` at build time: the `origin` remote, or `UPDATE_REPO=owner/repo`. Builds without one simply have no update button. `scripts/build-app.sh --zip` alone writes the zip without publishing it. Don't commit binaries to git: they bloat the history and go stale.
 
