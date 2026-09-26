@@ -3,7 +3,7 @@
 A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on macOS. It places the focused window on a grid using global keyboard shortcuts, and everything is configured in one TOML file.
 
 - Native arm64 (Apple Silicon), macOS 13 or later, built for macOS 27+. Divvy is Intel-only and stops working when Rosetta goes away in macOS 28.
-- Only Apple frameworks are used: AppKit, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 1,000 lines you can read.
+- Only Apple frameworks are used: AppKit, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 1,600 lines you can read.
 - Divvy-style grid shortcuts, with a grid size per shortcut, an optional gap, and moving windows to the next or previous display.
 - Divvy's *local* shortcuts (which work while the Divvy panel is open) map to a **leader key**: press it, then a plain key such as `l`, within a few seconds.
 - Imports your existing Divvy shortcuts with `gridkeys import-divvy`.
