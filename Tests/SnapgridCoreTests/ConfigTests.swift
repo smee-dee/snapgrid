@@ -123,6 +123,7 @@ final class ConfigTests: XCTestCase {
     func testRenderRoundTrips() throws {
         var config = try Config.parse(DefaultConfig.text)
         config.settings.gap = 2.5
+        config.settings.showGrid = false
         config.shortcuts.append(Shortcut(name: "Quote \"x\"", combo: try KeyCombo.parse("ctrl+keycode:10"),
                                          action: .place(CellRange(x: 1, y: 0, w: 2, h: 1), grid: GridSize(columns: 3, rows: 1)),
                                          global: true))

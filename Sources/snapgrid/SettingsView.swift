@@ -310,16 +310,21 @@ private struct GeneralTab: View {
                         }
                     }
                 }
-                LabeledContent("Active for") {
-                    HStack {
-                        Slider(value: $model.leaderTimeout, in: 1...10, step: 0.5)
-                        Text(String(format: "%.1f s", model.leaderTimeout)).monospacedDigit().frame(width: 44, alignment: .trailing)
+                Toggle("Show the grid when I press it", isOn: $model.showGrid)
+                if !model.showGrid {
+                    LabeledContent("Shortcuts active for") {
+                        HStack {
+                            Slider(value: $model.leaderTimeout, in: 1...10, step: 0.5)
+                            Text(String(format: "%.1f s", model.leaderTimeout)).monospacedDigit().frame(width: 44, alignment: .trailing)
+                        }
                     }
                 }
             } header: {
                 Text("Leader key")
             } footer: {
-                Text("Shortcuts set to “After the leader key” work for this long after you press it, like the shortcuts in Divvy's panel. Esc cancels.")
+                Text(model.showGrid
+                     ? "Like Divvy's panel: a grid appears on the focused window's display. Drag across it and release to place the window, or press one of the “After the leader key” shortcuts. Esc, a click elsewhere or the leader key again closes it."
+                     : "Shortcuts set to “After the leader key” work for this long after you press it. Esc cancels.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("App") {

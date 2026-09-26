@@ -55,6 +55,7 @@ final class SettingsModel: ObservableObject {
     @Published var gap: Double = 0
     @Published var leader: KeyCombo?
     @Published var leaderTimeout: Double = 3
+    @Published var showGrid = true
     @Published var shortcuts: [ShortcutDraft] = []
     @Published var selection: UUID?
     @Published private(set) var recording: RecordTarget?
@@ -83,6 +84,7 @@ final class SettingsModel: ObservableObject {
         gap = config.settings.gap
         leader = config.settings.leader
         leaderTimeout = config.settings.leaderTimeout
+        showGrid = config.settings.showGrid
         shortcuts = config.shortcuts.map { ShortcutDraft($0, defaultGrid: config.settings.grid) }
         if !shortcuts.contains(where: { $0.id == selection }) { selection = shortcuts.first?.id }
     }
@@ -109,6 +111,7 @@ final class SettingsModel: ObservableObject {
         config.settings.gap = gap
         config.settings.leader = leader
         config.settings.leaderTimeout = leaderTimeout
+        config.settings.showGrid = showGrid
         for d in shortcuts {
             guard let combo = d.combo else {
                 return Check(problem: Problem(shortcut: d.id, message: "“\(d.name)” has no keys yet. Click Record Shortcut."))

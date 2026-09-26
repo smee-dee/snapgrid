@@ -59,6 +59,19 @@ enum WindowMover {
         setFrame(window, target, app: axApp)
     }
 
+    /// The display showing the focused window, or the one under the mouse.
+    static func focusedScreen() -> NSScreen? {
+        if AXIsProcessTrusted(), let app = NSWorkspace.shared.frontmostApplication,
+           let window = copyElement(AXUIElementCreateApplication(app.processIdentifier), kAXFocusedWindowAttribute),
+           let current = frame(of: window),
+           let index = Geometry.screenIndex(for: current, screens: screens().map(\.frame)),
+           index < NSScreen.screens.count {
+            return NSScreen.screens[index]
+        }
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+    }
+
     private static func copyElement(_ element: AXUIElement, _ attribute: String) -> AXUIElement? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success,

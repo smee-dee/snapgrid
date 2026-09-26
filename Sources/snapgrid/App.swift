@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsModel: SettingsModel?
     private var settingsWindow: NSWindow?
     private let updater = Updater()
+    private let overlay = GridOverlay()
 
     init(configURL: URL) {
         self.configURL = configURL
@@ -127,7 +128,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 globalIDs.append(id)
             }
         }
-        if let leader = config.settings.leader, config.shortcuts.contains(where: { !$0.global }) {
+        if let leader = config.settings.leader,
+           config.settings.showGrid || config.shortcuts.contains(where: { !$0.global }) {
             leaderID = register(leader) { [weak self] in self?.armLeader() }
         }
         rebuildMenu()
@@ -147,10 +149,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return id
     }
 
-    /// Local shortcuts are only registered for a few seconds after the leader key,
-    /// mirroring Divvy's local shortcuts that work while its panel is open.
+    /// Local shortcuts are only registered after the leader key, mirroring Divvy's local
+    /// shortcuts that work while its panel is open: until the grid closes, or for
+    /// `leader_timeout` seconds when the grid is turned off.
     private func armLeader() {
         guard let config else { return }
+        if overlay.isVisible {
+            disarmLeader()
+            return
+        }
         disarmLeader()
         for shortcut in config.shortcuts where !shortcut.global {
             if let id = register(shortcut.combo, { [weak self] in
@@ -163,6 +170,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             localIDs.append(id)
         }
         setIcon(armed: true)
+        if config.settings.showGrid, let screen = WindowMover.focusedScreen() {
+            let grid = config.settings.grid
+            overlay.show(grid: grid, on: screen, app: NSWorkspace.shared.frontmostApplication,
+                         onSelect: { [weak self] cells in
+                             self?.disarmLeader()
+                             self?.run(.place(cells, grid: grid), name: "grid selection")
+                         },
+                         onDismiss: { [weak self] in self?.disarmLeader() })
+            return
+        }
         let timeout = DispatchWorkItem { [weak self] in MainActor.assumeIsolated { self?.disarmLeader() } }
         leaderTimeout = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + config.settings.leaderTimeout, execute: timeout)
@@ -171,21 +188,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func disarmLeader() {
         leaderTimeout?.cancel()
         leaderTimeout = nil
+        overlay.hide()
         HotKeyCenter.shared.unregisterAll(localIDs)
         localIDs = []
         if statusItem != nil { setIcon(armed: false) }
     }
 
     private func run(_ shortcut: Shortcut) {
+        run(shortcut.action, name: shortcut.name)
+    }
+
+    private func run(_ action: Action, name: String) {
         do {
-            try WindowMover.perform(shortcut.action, gap: config?.settings.gap ?? 0)
+            try WindowMover.perform(action, gap: config?.settings.gap ?? 0)
         } catch WindowMoverError.notTrusted {
             NSSound.beep()
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
         } catch {
             NSSound.beep()
-            log("\(shortcut.name): \(error)")
+            log("\(name): \(error)")
         }
     }
 
@@ -307,15 +329,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: Updates
 
     @objc private func checkForUpdates() {
-        showSettings()
-        Task { await updater.check(userInitiated: true) }
+        Task {
+            await updater.check(userInitiated: true)
+            switch updater.state {
+            case .available:
+                installUpdate()
+            case .upToDate:
+                showAlert("You're up to date", "Snapgrid \(updater.currentVersion) is the latest version.")
+            case .failed(let message):
+                showAlert("Couldn't check for updates", message)
+            default:
+                break
+            }
+        }
+    }
+
+    private func showAlert(_ title: String, _ text: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text
+        if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
+        alert.runModal()
     }
 
     @objc private func installUpdate() {
         guard case .available(let release) = updater.state else { return }
         let alert = NSAlert()
-        alert.messageText = "Install Snapgrid \(release.version)?"
-        alert.informativeText = release.notes.isEmpty ? "Snapgrid restarts after the update." : release.notes
+        alert.messageText = "Snapgrid \(release.version) is available"
+        alert.informativeText = "You have \(updater.currentVersion). "
+            + (release.notes.isEmpty ? "" : "\n\n\(release.notes)\n\n") + "Snapgrid restarts after the update."
         alert.addButton(withTitle: "Install and Restart")
         alert.addButton(withTitle: "Later")
         if #available(macOS 14.0, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }

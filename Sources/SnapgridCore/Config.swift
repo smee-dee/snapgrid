@@ -60,6 +60,8 @@ public struct Settings: Equatable {
     public var gap: Double = 0
     public var leader: KeyCombo?
     public var leaderTimeout: Double = 3
+    /// Show Divvy's click-and-drag grid when the leader key is pressed.
+    public var showGrid = true
 
     public init() {}
 }
@@ -111,7 +113,7 @@ public struct Config: Equatable {
 
         var config = Config()
         let s = doc.tables["settings"] ?? [:]
-        try checkKeys(s, allowed: ["grid", "gap", "leader", "leader_timeout"], context: "[settings]", line: nil)
+        try checkKeys(s, allowed: ["grid", "gap", "leader", "leader_timeout", "show_grid"], context: "[settings]", line: nil)
         if let v = s["grid"] {
             guard let str = v.stringValue, let g = GridSize.parse(str) else {
                 throw ConfigError(line: nil, message: "[settings] grid must look like \"6x4\"")
@@ -134,6 +136,10 @@ public struct Config: Equatable {
                 throw ConfigError(line: nil, message: "[settings] leader_timeout must be seconds between 0 and 60")
             }
             config.settings.leaderTimeout = d
+        }
+        if let v = s["show_grid"] {
+            guard let b = v.boolValue else { throw ConfigError(line: nil, message: "[settings] show_grid must be true or false") }
+            config.settings.showGrid = b
         }
 
         let entries = doc.arrays["shortcut"] ?? []
@@ -240,6 +246,7 @@ extension Config {
         if let leader = settings.leader {
             out += "leader = \(q(leader.description))\n"
             out += "leader_timeout = \(number(settings.leaderTimeout))\n"
+            out += "show_grid = \(settings.showGrid)\n"
         }
         for s in shortcuts {
             out += "\n[[shortcut]]\n"

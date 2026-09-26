@@ -5,7 +5,7 @@ A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on m
 - Native arm64 (Apple Silicon), macOS 13 or later, built for macOS 27+. Divvy is Intel-only and stops working when Rosetta goes away in macOS 28.
 - Only Apple frameworks are used: AppKit, SwiftUI, Accessibility (`AXUIElement`), Carbon `RegisterEventHotKey` and ServiceManagement. There are no third-party packages, and the whole tool is about 2,400 lines you can read.
 - Divvy-style grid shortcuts, with a grid size per shortcut, an optional gap, and moving windows to the next or previous display.
-- Divvy's *local* shortcuts (which work while the Divvy panel is open) map to a **leader key**: press it, then a plain key such as `l`, within a few seconds.
+- **Divvy's panel:** press the **leader key** and a translucent grid appears over the focused window's display. Drag across it and release to place the window there, or press one of Divvy's *local* shortcuts (plain keys such as `l`). Esc, a click elsewhere or the leader key again closes it.
 - Imports your existing Divvy shortcuts with `snapgrid import-divvy`.
 - Runs as a menu-bar item (no Dock icon) with Settings, Reload, Edit Config File, Launch at Login and Quit. The config reloads automatically when you save it.
 - A **Settings** window (menu bar › Settings…, or open the app again) edits everything without touching the file: record shortcuts, drag across a grid to choose where the window goes, and set the grid, gap, leader key and launch at login. It also imports from Divvy and shows Accessibility status and shortcuts another app already uses.
@@ -74,7 +74,8 @@ snapgrid reload                  # or just save the file; the app picks it up
 grid = "6x6"              # default grid, columns x rows
 gap = 0                   # points between windows and around screen edges
 leader = "ctrl+alt+space" # arms local shortcuts (optional)
-leader_timeout = 3        # seconds they stay armed
+leader_timeout = 3        # seconds they stay armed when show_grid = false
+show_grid = true          # leader key opens Divvy's click-and-drag grid (default)
 
 [[shortcut]]
 name = "Left two thirds"  # optional, shown in `snapgrid check` and error messages

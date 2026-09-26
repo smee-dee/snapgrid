@@ -19,7 +19,7 @@ Swift package, Apple frameworks only (no third-party packages). `Sources/Snapgri
    - `curl -fsSL https://api.github.com/repos/smee-dee/snapgrid/releases/latest` shows the new tag with a `Snapgrid-<version>.zip` asset.
    - Download and unzip it with `ditto -x -k`, then
      `codesign --verify --strict -R='anchor apple generic and identifier "dev.snapgrid.Snapgrid" and certificate leaf[subject.OU] = "8NQ55VC3K2"' Snapgrid.app` (the updater's own check).
-6. Optionally install it locally: `SIGN_IDENTITY=… scripts/build-app.sh --install`.
+6. Don't install builds on the user's Mac (`build-app.sh --install`); the user updates through the app's own updater, which also tests the release.
 
 ## Git
 
