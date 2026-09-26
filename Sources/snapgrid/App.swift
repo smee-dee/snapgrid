@@ -430,7 +430,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func installUpdate() {
         guard case .available(let release) = updater.state else { return }
         let alert = NSAlert()
-        alert.messageText = "Snapgrid \(release.version) is available"
+        alert.messageText = "Snapgrid \(release.version) is available" + (release.isPrerelease ? " (beta)" : "")
         alert.informativeText = "You have \(updater.currentVersion). "
             + (release.notes.isEmpty ? "" : "\n\n\(release.notes)\n\n") + "Snapgrid restarts after the update."
         alert.addButton(withTitle: "Install and Restart")

@@ -29,7 +29,7 @@ scripts/build-app.sh            # builds build/Snapgrid.app, signed ad hoc
 ## Pull requests
 
 - **Apple frameworks only.** No third-party packages.
-- **Logic goes in `SnapgridCore`, with tests.** Every feature or fix gets a test for its logic. Core line coverage stays above 95% (`swift test --enable-code-coverage`).
+- **Logic goes in `SnapgridCore`, with tests.** Every feature or fix gets a test for its logic. Core line coverage stays at 95% or more: `scripts/coverage.sh` checks it, and GitHub Actions runs it on every pull request.
 - **Changelog:** add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md) for anything users will notice, written for users (Keep a Changelog headings: Added, Changed, Fixed, Removed).
 - **Docs:** if you add or change a config option, update the README's "Config reference".
 - **Keep it small and readable,** and match the style of the surrounding code.
@@ -38,7 +38,7 @@ scripts/build-app.sh            # builds build/Snapgrid.app, signed ad hoc
 
 ## Releases
 
-Releases are made by the maintainer: version bump, signing with the project's certificate, and publishing on GitHub. Installed copies only accept updates signed by that certificate, so contributors never need it. Your change ships in the next release after it's merged.
+Releases are made by the maintainer: version bump, signing with the project's certificate, and publishing on GitHub. Installed copies only accept updates signed by that certificate, so contributors never need it. Your change ships in the next release after it's merged. For bigger changes, the maintainer may publish a beta from your pull request first; testers get it with "Get beta versions" in Settings, and the pull request gets a comment with the link.
 
 ## License
 
