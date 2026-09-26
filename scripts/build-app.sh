@@ -11,7 +11,12 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-APP=build/Snapgrid.app
+OUT=build/Snapgrid.app
+# Assembled and signed outside the repo: codesign rejects the extended attributes
+# that iCloud Drive keeps adding to files under ~/Documents.
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+APP=$STAGE/Snapgrid.app
 BUNDLE_ID=dev.snapgrid.Snapgrid
 VERSION=$(sed -n 's/.*static let version = "\(.*\)"/\1/p' Sources/snapgrid/CLI.swift)
 
@@ -45,12 +50,15 @@ if [[ "$IDENTITY" == "-" ]]; then
 fi
 codesign --force --options runtime --identifier "$BUNDLE_ID" --sign "$IDENTITY" "$APP"
 codesign --verify --strict "$APP"
-echo "Built $APP ($(lipo -archs "$APP/Contents/MacOS/snapgrid"))"
+rm -rf "$OUT"
+mkdir -p "$(dirname "$OUT")"
+ditto "$APP" "$OUT"
+echo "Built $OUT ($(lipo -archs "$APP/Contents/MacOS/snapgrid"))"
 
 if [[ "${1:-}" == "--install" ]]; then
   osascript -e 'quit app "Snapgrid"' 2>/dev/null || true
   rm -rf /Applications/Snapgrid.app
-  cp -R "$APP" /Applications/
+  ditto "$APP" /Applications/Snapgrid.app
   LINK_DIR=/opt/homebrew/bin
   [[ -d "$LINK_DIR" && -w "$LINK_DIR" ]] || LINK_DIR="$HOME/.local/bin"
   mkdir -p "$LINK_DIR"

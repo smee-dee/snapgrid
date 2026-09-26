@@ -29,6 +29,16 @@ public struct Modifiers: OptionSet, Hashable {
         self = m
     }
 
+    /// Carbon modifier mask, as stored in Divvy's `globalHotkey.modifiers`.
+    public init(carbonFlags: Int) {
+        var m: Modifiers = []
+        if carbonFlags & (1 << 8) != 0 { m.insert(.command) }
+        if carbonFlags & (1 << 9) != 0 { m.insert(.shift) }
+        if carbonFlags & (1 << 11) != 0 { m.insert(.option) }
+        if carbonFlags & (1 << 12) != 0 { m.insert(.control) }
+        self = m
+    }
+
     public var names: [String] {
         var out: [String] = []
         if contains(.control) { out.append("ctrl") }

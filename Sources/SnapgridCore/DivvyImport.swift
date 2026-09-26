@@ -73,6 +73,13 @@ public enum DivvyImporter {
         public var shortcuts: [DivvyShortcut]
         /// Other top-level preference keys (names only; values may include the licence key).
         public var otherKeys: [String]
+        /// The hotkey that opened Divvy's panel, if enabled (`globalHotkey`, Carbon modifiers).
+        public var panelHotkey: (keyCode: Int, carbonFlags: Int)?
+
+        public init(shortcuts: [DivvyShortcut], otherKeys: [String],
+                    panelHotkey: (keyCode: Int, carbonFlags: Int)? = nil) {
+            self.shortcuts = shortcuts; self.otherKeys = otherKeys; self.panelHotkey = panelHotkey
+        }
     }
 
     /// Reads a Divvy preferences plist (binary or XML, e.g. from `defaults export com.mizage.direct.Divvy -`).
@@ -87,7 +94,13 @@ public enum DivvyImporter {
             throw DivvyImportError(message: "no 'shortcuts' entry found — is this Divvy's preference file?")
         }
         let others = dict.keys.filter { $0 != "shortcuts" }.sorted()
-        return Preferences(shortcuts: try decodeShortcuts(archive), otherKeys: others)
+        var hotkey: (keyCode: Int, carbonFlags: Int)?
+        if (dict["useGlobalHotkey"] as? Bool) ?? true,
+           let h = dict["globalHotkey"] as? [String: Any],
+           let code = h["keyCode"] as? Int, let flags = h["modifiers"] as? Int {
+            hotkey = (code, flags)
+        }
+        return Preferences(shortcuts: try decodeShortcuts(archive), otherKeys: others, panelHotkey: hotkey)
     }
 
     public static func decodeShortcuts(_ archive: Data) throws -> [DivvyShortcut] {
@@ -159,12 +172,19 @@ public enum DivvyImporter {
 
         """
         if hasLocal {
+            var leader = "ctrl+alt+space"
+            var leaderHint = "# Set it to the hotkey you used to open the Divvy panel."
+            if let h = prefs.panelHotkey, !Modifiers(carbonFlags: h.carbonFlags).isEmpty {
+                let key = KeyCodes.portableName(for: UInt32(max(h.keyCode, 0)), layoutCharacter: layoutCharacter)
+                leader = (Modifiers(carbonFlags: h.carbonFlags).names + [key]).joined(separator: "+")
+                leaderHint = "# The leader is the hotkey that opened the Divvy panel."
+            }
             out += """
 
             # Divvy "local" shortcuts only worked while the Divvy panel was open.
             # Here they work for \(Int(Settings().leaderTimeout))s after pressing the leader key.
-            # Set it to the hotkey you used to open the Divvy panel.
-            leader = "ctrl+alt+space"
+            \(leaderHint)
+            leader = \(TOMLParser.quote(leader))
             leader_timeout = \(Int(Settings().leaderTimeout))
 
             """

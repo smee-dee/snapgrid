@@ -132,6 +132,27 @@ final class DivvyImportTests: XCTestCase {
         XCTAssertTrue(text.contains("same keys as 'Left Half'"))
     }
 
+    func testPanelHotkeyBecomesLeader() throws {
+        let shortcuts = [
+            DivvyShortcut(name: "Left", global: false, keyCode: 1, cocoaFlags: 0,
+                          startColumn: 0, startRow: 0, endColumn: 4, endRow: 9, columns: 10, rows: 10),
+        ]
+        var domain: [String: Any] = [
+            "shortcuts": try DivvyImporter.encodeShortcuts(shortcuts),
+            "globalHotkey": ["keyCode": 2, "modifiers": 768],
+            "useGlobalHotkey": true,
+        ]
+        let layout: (UInt32) -> Character? = { $0 == 2 ? "d" : ($0 == 1 ? "s" : nil) }
+        var data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
+        var text = DivvyImporter.renderConfig(try DivvyImporter.readPreferences(data), source: "test", layoutCharacter: layout)
+        XCTAssertEqual(try Config.parse(text).settings.leader?.description, "shift+cmd+d")
+
+        domain["useGlobalHotkey"] = false
+        data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
+        text = DivvyImporter.renderConfig(try DivvyImporter.readPreferences(data), source: "test", layoutCharacter: layout)
+        XCTAssertEqual(try Config.parse(text).settings.leader?.description, "ctrl+alt+space")
+    }
+
     func testLayoutLookupNamesCharacterKeys() {
         let converted = DivvyImporter.convert(
             DivvyShortcut(name: "", global: true, keyCode: 6, cocoaFlags: 1 << 18,
