@@ -29,7 +29,7 @@ enum Accessibility {
 @MainActor
 final class OnboardingModel: ObservableObject {
     enum Step: Int, CaseIterable { case welcome, accessibility, shortcuts, finish }
-    enum Source: Hashable { case keep, iCloud, divvy, example }
+    typealias Source = Setup.Source
 
     static let completedKey = "onboardingCompleted"
 
@@ -56,10 +56,8 @@ final class OnboardingModel: ObservableObject {
         let cloud = CloudSync.iCloudDrive
         cloudCount = cloud.hasCloudConfig ? (try? Config.load(from: cloud.configURL))?.shortcuts.count : nil
         syncWithICloud = cloud.isEnabled(for: configURL)
-        if currentCount != nil { source = .keep }
-        else if cloudCount != nil { source = .iCloud }
-        else if divvyCount != nil { source = .divvy }
-        else { source = .example }
+        source = Setup.preferredSource(hasCurrent: currentCount != nil, hasCloud: cloudCount != nil,
+                                       hasDivvy: divvyCount != nil)
     }
 
     static func divvyConfig() throws -> Config {
@@ -101,15 +99,7 @@ final class OnboardingModel: ObservableObject {
             self.error = (error as? CLI.Failure)?.message ?? "\(error)"
             return false
         }
-        if let config = onApply() {
-            let local = config.shortcuts.filter { !$0.global }.count
-            summary = "\(config.shortcuts.count) shortcuts are ready."
-            if let leader = config.settings.leader, local > 0 {
-                summary += " For the \(local) that work after the leader key, press \(leader.symbols), then the key."
-            }
-        } else {
-            summary = "Your config has an error. Open Settings to fix it."
-        }
+        summary = Setup.summary(for: onApply())
         return true
     }
 

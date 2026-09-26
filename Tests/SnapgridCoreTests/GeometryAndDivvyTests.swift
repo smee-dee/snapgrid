@@ -44,6 +44,16 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(Geometry.move(win, from: a, to: b), Rect(x: 2000, y: 0, width: 1000, height: 1000))
         XCTAssertEqual(Geometry.spatialOrder([b, a]), [1, 0])
     }
+
+    func testWindowWithItsCentreOffScreenBelongsToTheDisplayItOverlapsMost() {
+        let a = Rect(x: 0, y: 0, width: 1000, height: 800)
+        let b = Rect(x: 1000, y: 0, width: 1000, height: 800)
+        // Centre is above both displays; most of the window hangs into b.
+        let win = Rect(x: 900, y: -700, width: 800, height: 800)
+        XCTAssertEqual(Geometry.screenIndex(for: win, screens: [a, b]), 1)
+        XCTAssertEqual(Geometry.screenIndex(for: Rect(x: 5000, y: 5000, width: 10, height: 10), screens: [a, b]), 0)
+        XCTAssertNil(Geometry.screenIndex(for: win, screens: []))
+    }
 }
 
 final class DivvyImportTests: XCTestCase {
@@ -184,11 +194,40 @@ final class DivvyImportTests: XCTestCase {
         XCTAssertEqual(config.settings.gap, 8)
         XCTAssertEqual(config.settings.margin, Insets(top: 5, right: 10, bottom: 5, left: 10))
 
+        domain["defaultWindowMarginHeight"] = 4
+        domain["defaultScreenMarginTop"] = 8; domain["defaultScreenMarginRight"] = 8
+        domain["defaultScreenMarginBottom"] = 8; domain["defaultScreenMarginLeft"] = 8
+        data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
+        let text = DivvyImporter.renderConfig(try DivvyImporter.readPreferences(data), source: "test")
+        XCTAssertTrue(text.contains("# NOTE: Divvy used 8 pt between windows side by side and 4 pt"))
+        config = try Config.parse(text)
+        XCTAssertNil(config.settings.margin, "margins equal to the gap need no margin line")
+
         domain["enableMargins"] = false
         data = try PropertyListSerialization.data(fromPropertyList: domain, format: .binary, options: 0)
         config = try Config.parse(DivvyImporter.renderConfig(try DivvyImporter.readPreferences(data), source: "test"))
         XCTAssertEqual(config.settings.gap, 0)
         XCTAssertNil(config.settings.margin)
+    }
+
+    func testRejectsFilesThatAreNotDivvyPreferences() throws {
+        XCTAssertThrowsError(try DivvyImporter.readPreferences(Data("hello".utf8)))
+        let array = try PropertyListSerialization.data(fromPropertyList: [1, 2], format: .binary, options: 0)
+        XCTAssertThrowsError(try DivvyImporter.readPreferences(array))
+        let other = try PropertyListSerialization.data(fromPropertyList: ["x": 1], format: .binary, options: 0)
+        XCTAssertThrowsError(try DivvyImporter.readPreferences(other)) { error in
+            XCTAssertTrue("\(error)".contains("no 'shortcuts' entry"))
+        }
+    }
+
+    func testGlobalShortcutWithoutModifierBecomesLocal() throws {
+        let prefs = DivvyImporter.Preferences(
+            shortcuts: [DivvyShortcut(name: "Plain", global: true, keyCode: 37, cocoaFlags: 0,
+                                      startColumn: 0, startRow: 0, endColumn: 0, endRow: 0, columns: 2, rows: 2)],
+            otherKeys: [])
+        let text = DivvyImporter.renderConfig(prefs, source: "test")
+        XCTAssertTrue(text.contains("made local"))
+        XCTAssertFalse(try XCTUnwrap(Config.parse(text).shortcuts.first).global)
     }
 
     func testLayoutLookupNamesCharacterKeys() {

@@ -111,6 +111,16 @@ final class ConfigTests: XCTestCase {
         assertError("[[shortcut]]\nkeys = \"ctrl+a\"\naction = \"next-screen\"\ncells = \"0,0 1x1\"", contains: "only apply")
         assertError("[setings]\ngap = 1", contains: "unknown table")
         assertError("[settings]\ngrid = \"0x4\"", contains: "grid must look like")
+        assertError("[[shortcuts]]\nkeys = \"ctrl+a\"", contains: "did you mean [[shortcut]]")
+        assertError("grid = \"6x6\"", contains: "must live under")
+        assertError("[settings]\ngap = 500", contains: "gap must be")
+        assertError("[settings]\nleader_timeout = 0", contains: "leader_timeout must be")
+        assertError("[settings]\nshow_grid = \"yes\"", contains: "show_grid must be")
+        assertError("[[shortcut]]\ncells = \"0,0 1x1\"", contains: "needs keys")
+        assertError("[[shortcut]]\nkeys = \"ctrl+a\"\ncells = \"0,0 1x1\"\nglobal = 1", contains: "global must be")
+        assertError("[[shortcut]]\nkeys = \"ctrl+a\"", contains: "needs cells")
+        assertError("[[shortcut]]\nkeys = \"ctrl+a\"\ncells = \"0,0 1x1\"\ngrid = \"big\"", contains: "grid must look like")
+        assertError("[[shortcut]]\nkeys = \"ctrl+a\"\naction = \"maximize\"", contains: "unknown action")
         assertError("[settings]\nmargin = \"1 2 3\"", contains: "margin must be")
         assertError("[settings]\nmargin = -4", contains: "margin must be")
         assertError("[settings]\nleader = \"ctrl+alt+space\"\n[[shortcut]]\nkeys = \"ctrl+alt+space\"\ncells = \"0,0 1x1\"",
@@ -141,6 +151,29 @@ final class ConfigTests: XCTestCase {
 
         config.settings.leader = nil
         XCTAssertFalse(config.render().contains("leader"))
+    }
+
+    func testLoadsFromDisk() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("snapgrid-\(UUID().uuidString).toml")
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertThrowsError(try Config.load(from: url)) { error in
+            XCTAssertTrue("\(error)".contains("cannot read"))
+        }
+        try DefaultConfig.text.write(to: url, atomically: true, encoding: .utf8)
+        XCTAssertEqual(try Config.load(from: url), try Config.parse(DefaultConfig.text))
+        XCTAssertTrue(Config.defaultPath.path.hasSuffix("snapgrid/config.toml"))
+    }
+
+    func testMarginForms() throws {
+        XCTAssertEqual(Insets.parse("8"), Insets(all: 8))
+        XCTAssertEqual(Insets.parse("10 20"), Insets(top: 10, right: 20, bottom: 10, left: 20))
+        XCTAssertEqual(Insets.parse("1 2 3 4"), Insets(top: 1, right: 2, bottom: 3, left: 4))
+        XCTAssertNil(Insets.parse("1 2 3"))
+        XCTAssertNil(Insets.parse("1 x"))
+        XCTAssertNil(Insets.parse("600"))
+        XCTAssertEqual(try Config.parse("[settings]\nmargin = 12").settings.margin, Insets(all: 12))
+        XCTAssertEqual(try Config.parse("[settings]\nmargin = \"25 0 0 0\"").settings.margin?.top, 25)
+        XCTAssertNil(try Config.parse("[settings]\ngap = 4").settings.margin)
     }
 
     func testBareFunctionKeyMayBeGlobal() throws {

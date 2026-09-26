@@ -9,6 +9,12 @@ Swift package, Apple frameworks only (no third-party packages). `Sources/Snapgri
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test --scratch-path ~/Library/Caches/snapgrid-build`
 - `scripts/build-app.sh` already signs in a temp dir outside iCloud; don't move signing back into `build/`.
 
+## Tests
+
+Decisions go in `SnapgridCore` with tests: config rules, geometry and placement, panel behaviour, update policy, setup choices, file writes. The `snapgrid` target should only connect them to AppKit, SwiftUI, Carbon and Accessibility, which can't be unit-tested. Every new feature or fix gets a test for its logic. Keep core line coverage above 95% (`swift test --enable-code-coverage`, then `xcrun llvm-cov report` on the test bundle).
+
+What stays manual, for the user after updating: hotkeys register, the grid panel places windows (including + and −, and the leader key moving it across displays), Settings saves and records keys, the setup assistant, iCloud sync and the updater.
+
 ## Changelog
 
 Every user-visible change gets a line in `CHANGELOG.md` under `## [Unreleased]`, in the same commit as the change. Use Keep a Changelog headings (`### Added`, `### Changed`, `### Fixed`, `### Removed`) and write for users, not in commit-message style. Internal-only changes (tests, refactors, agent docs) don't need an entry.

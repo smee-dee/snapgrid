@@ -75,6 +75,27 @@ public struct KeyCombo: Hashable, CustomStringConvertible {
         return (modifiers.names + [keyName]).joined(separator: "+")
     }
 
+    /// Menu-style rendering, e.g. "⌃⌥←" or "⇧⌘D".
+    public var symbols: String {
+        var s = ""
+        if modifiers.contains(.control) { s += "⌃" }
+        if modifiers.contains(.option) { s += "⌥" }
+        if modifiers.contains(.shift) { s += "⇧" }
+        if modifiers.contains(.command) { s += "⌘" }
+        switch key {
+        case .character(let ch):
+            return s + String(ch).uppercased()
+        case .code(let code):
+            let glyphs = ["left": "←", "right": "→", "up": "↑", "down": "↓", "return": "↩", "tab": "⇥",
+                          "space": "Space", "delete": "⌫", "forwarddelete": "⌦", "escape": "⎋",
+                          "pageup": "⇞", "pagedown": "⇟", "home": "↖", "end": "↘"]
+            let name = KeyCodes.name(for: code) ?? "Key \(code)"
+            return s + (glyphs[name] ?? name.uppercased())
+        }
+    }
+
+    public static let escape = KeyCombo(modifiers: [], key: .code(53))
+
     public struct ParseError: Error, CustomStringConvertible {
         public let message: String
         public var description: String { message }

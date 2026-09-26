@@ -58,4 +58,43 @@ public enum GitHubReleases {
                        pageURL: (json["html_url"] as? String).flatMap(URL.init(string:)),
                        notes: json["body"] as? String ?? "")
     }
+
+    /// Why a `releases/latest` request failed, or nil for a usable answer.
+    public static func failure(status: Int) -> String? {
+        switch status {
+        case 200: return nil
+        case 404: return "No release has been published yet."
+        default: return "GitHub answered with status \(status)."
+        }
+    }
+}
+
+/// When the updater checks and installs, and what it accepts.
+public enum UpdatePolicy {
+    /// Automatic checks run at launch and every few hours, but at most once per this interval.
+    public static let checkInterval: TimeInterval = 24 * 3600
+    public static let timerInterval: TimeInterval = 6 * 3600
+    /// Automatic installs wait until the Mac has been idle this long, since Snapgrid restarts.
+    public static let idleBeforeInstall: TimeInterval = 600
+
+    public static func isCheckDue(lastCheck: Date?, now: Date = Date()) -> Bool {
+        now.timeIntervalSince(lastCheck ?? .distantPast) > checkInterval
+    }
+
+    /// `appAllows` is false while the grid panel is open or Settings has unsaved edits.
+    public static func shouldInstallAutomatically(idleSeconds: TimeInterval, appAllows: Bool) -> Bool {
+        idleSeconds >= idleBeforeInstall && appAllows
+    }
+
+    /// The code requirement a download must meet: Apple-issued certificate, Snapgrid's
+    /// bundle identifier and the same team as the running copy.
+    public static func signingRequirement(identifier: String, team: String) -> String {
+        "anchor apple generic and identifier \"\(identifier)\" and certificate leaf[subject.OU] = \"\(team)\""
+    }
+
+    /// A download is only installed if its bundle version is newer than the running one.
+    public static func isNewer(bundleVersion: String?, than current: AppVersion) -> Bool {
+        guard let version = bundleVersion.flatMap(AppVersion.init) else { return false }
+        return version > current
+    }
 }

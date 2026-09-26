@@ -19,8 +19,7 @@ final class Updater: ObservableObject {
     static let automaticKey = "checkForUpdatesAutomatically"
     static let autoInstallKey = "installUpdatesAutomatically"
     static let lastCheckKey = "lastUpdateCheck"
-    /// Automatic installs wait until the Mac has been idle this long, since Snapgrid restarts.
-    static let idleBeforeInstall: TimeInterval = 600
+    static let idleBeforeInstall = UpdatePolicy.idleBeforeInstall
 
     @Published private(set) var state: State = .idle {
         didSet { if case .available = state, autoInstall { scheduleIdleInstall() } }
@@ -66,7 +65,7 @@ final class Updater: ObservableObject {
             return
         }
         let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
-        guard idle >= Self.idleBeforeInstall, canInstallNow() else { return }
+        guard UpdatePolicy.shouldInstallAutomatically(idleSeconds: idle, appAllows: canInstallNow()) else { return }
         idleTimer?.invalidate()
         idleTimer = nil
         Task { await install(release) }
@@ -75,15 +74,16 @@ final class Updater: ObservableObject {
     /// Checks at launch and then every few hours, at most once a day.
     func startAutomaticChecks() {
         checkIfDue()
-        timer = Timer.scheduledTimer(withTimeInterval: 6 * 3600, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: UpdatePolicy.timerInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.checkIfDue() }
         }
     }
 
     private func checkIfDue() {
         guard automatic, repo != nil else { return }
-        let last = UserDefaults.standard.object(forKey: Self.lastCheckKey) as? Date ?? .distantPast
-        if Date().timeIntervalSince(last) > 24 * 3600 { Task { await check(userInitiated: false) } }
+        if UpdatePolicy.isCheckDue(lastCheck: UserDefaults.standard.object(forKey: Self.lastCheckKey) as? Date) {
+            Task { await check(userInitiated: false) }
+        }
     }
 
     func check(userInitiated: Bool) async {
@@ -99,9 +99,9 @@ final class Updater: ObservableObject {
             var request = URLRequest(url: url)
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             let (data, response) = try await URLSession.shared.data(for: request)
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if status == 404 { throw Failure(message: "No release has been published yet.") }
-            guard status == 200 else { throw Failure(message: "GitHub answered with status \(status).") }
+            if let problem = GitHubReleases.failure(status: (response as? HTTPURLResponse)?.statusCode ?? 0) {
+                throw Failure(message: problem)
+            }
             let release = try GitHubReleases.parseLatest(data)
             UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
             state = release.version > currentVersion ? .available(release) : .upToDate
@@ -141,7 +141,7 @@ final class Updater: ObservableObject {
         let id = Bundle.main.bundleIdentifier ?? "dev.snapgrid.Snapgrid"
         var code: SecStaticCode?
         var requirement: SecRequirement?
-        let text = "anchor apple generic and identifier \"\(id)\" and certificate leaf[subject.OU] = \"\(team)\""
+        let text = UpdatePolicy.signingRequirement(identifier: id, team: team)
         guard SecStaticCodeCreateWithPath(app as CFURL, [], &code) == errSecSuccess, let code,
               SecRequirementCreateWithString(text as CFString, [], &requirement) == errSecSuccess, let requirement else {
             throw Failure(message: "The download doesn't contain Snapgrid.app.")
@@ -150,8 +150,8 @@ final class Updater: ObservableObject {
         guard status == errSecSuccess else {
             throw Failure(message: "The download isn't signed by the same developer as this copy (error \(status)).")
         }
-        guard let version = (Bundle(url: app)?.infoDictionary?["CFBundleShortVersionString"] as? String).flatMap(AppVersion.init),
-              version > currentVersion else {
+        guard UpdatePolicy.isNewer(bundleVersion: Bundle(url: app)?.infoDictionary?["CFBundleShortVersionString"] as? String,
+                                   than: currentVersion) else {
             throw Failure(message: "The download isn't newer than the installed version.")
         }
     }

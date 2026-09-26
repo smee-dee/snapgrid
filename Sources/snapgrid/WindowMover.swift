@@ -3,11 +3,6 @@ import AppKit
 import ApplicationServices
 import SnapgridCore
 
-struct ScreenInfo {
-    var frame: Rect
-    var visible: Rect
-}
-
 enum WindowMoverError: Error, CustomStringConvertible {
     case notTrusted, noWindow, cannotReadFrame, noScreen
 
@@ -24,12 +19,12 @@ enum WindowMoverError: Error, CustomStringConvertible {
 /// Moves the focused window using the Accessibility API. All rects are in AX
 /// coordinates: origin at the top-left of the primary display, y growing downwards.
 enum WindowMover {
-    static func screens() -> [ScreenInfo] {
+    static func screens() -> [Display] {
         guard let primaryHeight = NSScreen.screens.first?.frame.height else { return [] }
         func convert(_ r: NSRect) -> Rect {
             Rect(x: r.minX, y: primaryHeight - r.maxY, width: r.width, height: r.height)
         }
-        return NSScreen.screens.map { ScreenInfo(frame: convert($0.frame), visible: convert($0.visibleFrame)) }
+        return NSScreen.screens.map { Display(frame: convert($0.frame), visible: convert($0.visibleFrame)) }
     }
 
     /// `screen` (an index into `NSScreen.screens`) overrides the display a placement goes to.
@@ -40,26 +35,11 @@ enum WindowMover {
         guard let window = copyElement(axApp, kAXFocusedWindowAttribute) else { throw WindowMoverError.noWindow }
         guard let current = frame(of: window) else { throw WindowMoverError.cannotReadFrame }
 
-        let all = screens()
-        guard let index = Geometry.screenIndex(for: current, screens: all.map(\.frame)) else {
-            throw WindowMoverError.noScreen
+        let displays = screens()
+        guard !displays.isEmpty else { throw WindowMoverError.noScreen }
+        if let target = Geometry.target(for: action, window: current, displays: displays, settings: settings, screen: screen) {
+            setFrame(window, target, app: axApp)
         }
-
-        let target: Rect
-        switch action {
-        case .place(let cells, let grid):
-            let dest = screen.flatMap { all.indices.contains($0) ? $0 : nil } ?? index
-            target = Geometry.frame(for: cells, grid: grid, in: all[dest].visible,
-                                    gap: settings.gap, margin: settings.margin)
-        case .nextScreen, .previousScreen:
-            guard all.count > 1 else { return }
-            let order = Geometry.spatialOrder(all.map(\.frame))
-            let pos = order.firstIndex(of: index)!
-            let step = action == .nextScreen ? 1 : order.count - 1
-            let dest = order[(pos + step) % order.count]
-            target = Geometry.move(current, from: all[index].visible, to: all[dest].visible)
-        }
-        setFrame(window, target, app: axApp)
     }
 
     /// Index into `NSScreen.screens` of the display showing the focused window, or the one under the mouse.

@@ -136,9 +136,8 @@ final class SettingsModel: ObservableObject {
         } catch let error as ConfigError {
             // Map the error's line back to the shortcut it belongs to.
             var id: UUID?
-            if let line = error.line {
-                let headers = text.components(separatedBy: "\n").prefix(line).filter { $0 == "[[shortcut]]" }.count
-                if headers > 0, headers <= shortcuts.count { id = shortcuts[headers - 1].id }
+            if let line = error.line, let i = Config.shortcutIndex(forErrorLine: line, in: text), i < shortcuts.count {
+                id = shortcuts[i].id
             }
             return Check(problem: Problem(shortcut: id, message: error.message))
         } catch {
@@ -316,27 +315,6 @@ final class SettingsModel: ObservableObject {
     var configLocation: String {
         iCloudSync ? "iCloud Drive › Snapgrid › config.toml"
             : (configURL.path as NSString).abbreviatingWithTildeInPath
-    }
-}
-
-extension KeyCombo {
-    /// Menu-style rendering, e.g. "⌃⌥←" or "⇧⌘D".
-    var symbols: String {
-        var s = ""
-        if modifiers.contains(.control) { s += "⌃" }
-        if modifiers.contains(.option) { s += "⌥" }
-        if modifiers.contains(.shift) { s += "⇧" }
-        if modifiers.contains(.command) { s += "⌘" }
-        switch key {
-        case .character(let ch):
-            return s + String(ch).uppercased()
-        case .code(let code):
-            let glyphs = ["left": "←", "right": "→", "up": "↑", "down": "↓", "return": "↩", "tab": "⇥",
-                          "space": "Space", "delete": "⌫", "forwarddelete": "⌦", "escape": "⎋",
-                          "pageup": "⇞", "pagedown": "⇟", "home": "↖", "end": "↘"]
-            let name = KeyCodes.name(for: code) ?? "Key \(code)"
-            return s + (glyphs[name] ?? name.uppercased())
-        }
     }
 }
 #endif

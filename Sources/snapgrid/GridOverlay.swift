@@ -12,8 +12,6 @@ final class GridOverlay {
 
     var isVisible: Bool { panel != nil }
 
-    static let sizes = 1...30
-
     func show(grid: GridSize, on screen: NSScreen, app: NSRunningApplication?,
               onSelect: @escaping (CellRange, GridSize) -> Void, onGridChange: @escaping (GridSize) -> Void,
               onSettings: @escaping () -> Void, onDismiss: @escaping () -> Void) {
@@ -65,9 +63,7 @@ final class GridOverlay {
             rows.stringValue = "\(gridView.grid.rows) rows"
         }
         func change(columns dc: Int, rows dr: Int) {
-            var g = gridView.grid
-            g.columns = min(max(g.columns + dc, Self.sizes.lowerBound), Self.sizes.upperBound)
-            g.rows = min(max(g.rows + dr, Self.sizes.lowerBound), Self.sizes.upperBound)
+            let g = Panel.adjust(gridView.grid, columns: dc, rows: dr)
             guard g != gridView.grid else { return }
             gridView.grid = g
             refresh()

@@ -23,7 +23,30 @@ public struct Rect: Equatable, CustomStringConvertible {
     }
 }
 
+/// A display: its full frame and the part not covered by the menu bar and Dock.
+public struct Display: Equatable {
+    public var frame: Rect
+    public var visible: Rect
+    public init(frame: Rect, visible: Rect) { self.frame = frame; self.visible = visible }
+}
+
 public enum Geometry {
+    /// Where `action` moves a window, or nil when there's nothing to do. Placements go to the
+    /// window's display unless `screen` names another one.
+    public static func target(for action: Action, window: Rect, displays: [Display],
+                              settings: Settings, screen: Int? = nil) -> Rect? {
+        guard let index = screenIndex(for: window, screens: displays.map(\.frame)) else { return nil }
+        switch action {
+        case .place(let cells, let grid):
+            let dest = screen.flatMap { displays.indices.contains($0) ? $0 : nil } ?? index
+            return frame(for: cells, grid: grid, in: displays[dest].visible, gap: settings.gap, margin: settings.margin)
+        case .nextScreen, .previousScreen:
+            guard displays.count > 1 else { return nil }
+            let dest = neighbour(of: index, in: displays.map(\.frame), step: action == .nextScreen ? 1 : -1)
+            return move(window, from: displays[index].visible, to: displays[dest].visible)
+        }
+    }
+
     /// Frame for a cell selection on a screen's visible area. `gap` is the spacing between
     /// adjacent windows; `margin` the space at the screen edges (the gap when nil).
     public static func frame(for cells: CellRange, grid: GridSize, in visible: Rect,

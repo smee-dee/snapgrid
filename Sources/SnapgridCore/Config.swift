@@ -264,6 +264,28 @@ public struct Config: Equatable {
 }
 
 extension Config {
+    /// Shortcuts registered all the time.
+    public var globalShortcuts: [Shortcut] { shortcuts.filter(\.global) }
+    /// Shortcuts registered only while the leader is armed.
+    public var localShortcuts: [Shortcut] { shortcuts.filter { !$0.global } }
+
+    /// The leader key is only registered when it has something to do: show the grid or arm local shortcuts.
+    public var registersLeader: Bool {
+        settings.leader != nil && (settings.showGrid || !localShortcuts.isEmpty)
+    }
+
+    /// While the leader is armed, Esc cancels it unless a local shortcut uses Esc itself.
+    public var escapeCancelsLeader: Bool { !localShortcuts.contains { $0.combo == .escape } }
+
+    /// Index of the `[[shortcut]]` that a parse error on `line` of `text` belongs to.
+    public static func shortcutIndex(forErrorLine line: Int, in text: String) -> Int? {
+        let headers = text.components(separatedBy: "\n").prefix(line)
+            .filter { $0.trimmingCharacters(in: .whitespaces) == "[[shortcut]]" }.count
+        return headers > 0 ? headers - 1 : nil
+    }
+}
+
+extension Config {
     /// TOML text that `Config.parse` reads back to the same settings and shortcuts.
     /// Comments from a hand-edited file are not preserved.
     public func render() -> String {

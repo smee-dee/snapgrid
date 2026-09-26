@@ -22,48 +22,15 @@ enum CLI {
 
     struct Failure: Error { let message: String; var code: Int32 = 1 }
 
-    struct Options {
-        var positional: [String] = []
-        var flags: Set<String> = []
-        var values: [String: String] = [:]
-
-        init(_ args: ArraySlice<String>, valued: Set<String>) throws {
-            var it = args.makeIterator()
-            while let arg = it.next() {
-                if valued.contains(arg) {
-                    guard let v = it.next() else { throw Failure(message: "\(arg) needs a value") }
-                    values[arg] = v
-                } else if arg.hasPrefix("--") {
-                    flags.insert(arg)
-                } else {
-                    positional.append(arg)
-                }
-            }
-        }
-
-        func configURL() -> URL {
-            values["--config"].map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) } ?? Config.defaultPath
-        }
-    }
+    typealias Options = CommandLineOptions
 
     static func writeDefaultConfig(to url: URL, force: Bool) throws {
         try write(DefaultConfig.text, to: url, force: force)
     }
 
     static func write(_ text: String, to url: URL, force: Bool) throws {
-        // An atomic write would replace a symlink (iCloud sync) with a plain file.
-        let url = url.resolvingSymlinksInPath()
-        let fm = FileManager.default
-        if fm.fileExists(atPath: url.path) {
-            guard force else {
-                throw Failure(message: "\(url.path) already exists (use --force to replace it; a .bak copy is kept)")
-            }
-            let backup = url.appendingPathExtension("bak")
-            try? fm.removeItem(at: backup)
-            try fm.copyItem(at: url, to: backup)
-        }
-        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try text.write(to: url, atomically: true, encoding: .utf8)
+        do { try ConfigFile.write(text, to: url, force: force) }
+        catch let error as ConfigFile.ExistsError { throw Failure(message: error.description) }
     }
 
     static func check(_ url: URL) throws {

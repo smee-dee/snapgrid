@@ -133,13 +133,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         defer { settingsModel?.notRegistered = failedCombos }
 
         guard let config else { rebuildMenu(); return }
-        for shortcut in config.shortcuts where shortcut.global {
+        for shortcut in config.globalShortcuts {
             if let id = register(shortcut.combo, { [weak self] in self?.run(shortcut) }) {
                 globalIDs.append(id)
             }
         }
-        if let leader = config.settings.leader,
-           config.settings.showGrid || config.shortcuts.contains(where: { !$0.global }) {
+        if config.registersLeader, let leader = config.settings.leader {
             leaderID = register(leader) { [weak self] in self?.armLeader() }
         }
         rebuildMenu()
@@ -165,25 +164,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func armLeader() {
         guard let config else { return }
         if overlay.isVisible, let screens = overlayScreens {
-            // Like Divvy's monitor cycling: each press moves the grid on, the last display closes it.
-            let order = Geometry.spatialOrder(WindowMover.screens().map(\.frame))
-            if let pos = order.firstIndex(of: screens.current), order[(pos + 1) % order.count] != screens.first {
-                showOverlay(on: order[(pos + 1) % order.count], config: config)
+            if let next = Panel.nextScreen(current: screens.current, first: screens.first,
+                                           screens: WindowMover.screens().map(\.frame)) {
+                showOverlay(on: next, config: config)
             } else {
                 disarmLeader()
             }
             return
         }
         disarmLeader()
-        for shortcut in config.shortcuts where !shortcut.global {
+        for shortcut in config.localShortcuts {
             if let id = register(shortcut.combo, { [weak self] in
                 let screen = self?.overlayScreens?.current
                 self?.disarmLeader()
                 self?.run(shortcut.action, name: shortcut.name, screen: screen)
             }) { localIDs.append(id) }
         }
-        if !config.shortcuts.contains(where: { !$0.global && $0.combo == KeyCombo(modifiers: [], key: .code(53)) }),
-           let id = register(KeyCombo(modifiers: [], key: .code(53)), { [weak self] in self?.disarmLeader() }) {
+        if config.escapeCancelsLeader, let id = register(.escape, { [weak self] in self?.disarmLeader() }) {
             localIDs.append(id)
         }
         setIcon(armed: true)
@@ -201,13 +198,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard NSScreen.screens.indices.contains(screen) else { return }
         overlayScreens?.current = screen
         let defaultGrid = config.settings.grid
-        overlay.show(grid: popupGrid(default: defaultGrid), on: NSScreen.screens[screen],
+        let memory = Panel.GridMemory()
+        overlay.show(grid: memory.grid(default: defaultGrid), on: NSScreen.screens[screen],
                      app: NSWorkspace.shared.frontmostApplication,
                      onSelect: { [weak self] cells, grid in
                          self?.disarmLeader()
                          self?.run(.place(cells, grid: grid), name: "grid selection", screen: screen)
                      },
-                     onGridChange: { [weak self] grid in self?.rememberPopupGrid(grid, default: defaultGrid) },
+                     onGridChange: { grid in memory.remember(grid, default: defaultGrid) },
                      onSettings: { [weak self] in
                          // Close after the click finishes, so the button isn't freed mid-action.
                          DispatchQueue.main.async {
@@ -218,19 +216,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                          }
                      },
                      onDismiss: { [weak self] in self?.disarmLeader() })
-    }
-
-    /// The popup keeps the size last set with its buttons until the grid in Settings changes.
-    private func popupGrid(default grid: GridSize) -> GridSize {
-        let defaults = UserDefaults.standard
-        guard defaults.string(forKey: "popupGridBase") == grid.description,
-              let saved = defaults.string(forKey: "popupGrid").flatMap(GridSize.parse) else { return grid }
-        return saved
-    }
-
-    private func rememberPopupGrid(_ grid: GridSize, default base: GridSize) {
-        UserDefaults.standard.set(grid.description, forKey: "popupGrid")
-        UserDefaults.standard.set(base.description, forKey: "popupGridBase")
     }
 
     private func disarmLeader() {
