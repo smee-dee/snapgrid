@@ -43,7 +43,7 @@ private struct FooterBar: View {
             } else if let warning = check.warnings.first {
                 Label(warning, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
             } else {
-                Text(dirty ? "Unsaved changes" : "Saved. Changes apply as soon as you save.").foregroundStyle(.secondary)
+                Text(dirty ? "Unsaved changes to your shortcuts and grid." : "All changes saved.").foregroundStyle(.secondary)
             }
             Spacer()
             Button("Revert") { model.revert() }.disabled(!dirty)
@@ -327,7 +327,7 @@ private struct GeneralTab: View {
                      : "Shortcuts set to “After the leader key” work for this long after you press it. Esc cancels.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section("App") {
+            Section {
                 if model.canLaunchAtLogin {
                     Toggle("Launch at login", isOn: $model.launchAtLogin)
                 }
@@ -345,6 +345,11 @@ private struct GeneralTab: View {
                         }
                     }
                 }
+            } header: {
+                Text("App")
+            } footer: {
+                Text("Applies immediately on this Mac; no need to save.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Sync settings with iCloud Drive", isOn: $model.iCloudSync)
@@ -353,7 +358,7 @@ private struct GeneralTab: View {
                 Text("Sync")
             } footer: {
                 Text(model.cloud.isAvailable
-                     ? "Keeps config.toml in iCloud Drive › Snapgrid so your other Macs use the same shortcuts. Launch at login stays per Mac."
+                     ? "Applies immediately; no need to save. Keeps config.toml in iCloud Drive › Snapgrid so your other Macs use the same shortcuts. Launch at login stays per Mac."
                      : "Turn on iCloud Drive in System Settings › Apple Account › iCloud to sync.")
                     .font(.caption).foregroundStyle(.secondary)
             }

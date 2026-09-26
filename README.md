@@ -12,6 +12,17 @@ A small, dependency-free replacement for [Divvy](https://mizage.com/divvy/) on m
 - A **setup assistant** on first launch (and later under menu bar › Setup Assistant…) walks through Accessibility permission, then lets you keep your config, import from Divvy, use settings from iCloud Drive, or start with the examples.
 - **Sync with iCloud Drive** (Settings › General) moves `config.toml` to iCloud Drive › Snapgrid and leaves a symlink at `~/.config/snapgrid/config.toml`, so the CLI and editors work as before. Edits from another Mac reload automatically. Apple's iCloud key-value store would need an iCloud entitlement, which requires a paid developer account; iCloud Drive doesn't.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/settings-shortcuts.png" width="420" alt="Settings: shortcut list with a Divvy-style grid picker">
+  <img src="docs/screenshots/settings-general.png" width="420" alt="Settings: grid, leader key, launch at login, iCloud sync and updates">
+</p>
+<p align="center">
+  <img src="docs/screenshots/setup-shortcuts.png" width="420" alt="Setup assistant: keep settings, import from Divvy or start with examples">
+  <img src="docs/screenshots/menu.png" width="360" alt="Menu-bar item">
+</p>
+
 ## Download
 
 1. Download `Snapgrid-<version>.zip` from the [latest release](https://github.com/smee-dee/snapgrid/releases/latest), unzip it, and move `Snapgrid.app` to Applications.
