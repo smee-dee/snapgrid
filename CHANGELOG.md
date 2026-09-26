@@ -4,6 +4,8 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-26
+
 ### Added
 - Beta versions: turn on "Get beta versions" in Settings › General › Updates to try upcoming features before they're released. Turning it off keeps the beta until the next stable version, or you can switch back to the latest stable version right away.
 
@@ -59,7 +61,8 @@ All notable changes to Snapgrid. The format follows [Keep a Changelog](https://k
 - Sync with iCloud Drive.
 - Check for Updates with in-app install, which only accepts updates signed by the same developer.
 
-[Unreleased]: https://github.com/smee-dee/snapgrid/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/smee-dee/snapgrid/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/smee-dee/snapgrid/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/smee-dee/snapgrid/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/smee-dee/snapgrid/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/smee-dee/snapgrid/compare/v0.2.2...v0.2.3

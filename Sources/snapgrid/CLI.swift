@@ -2,7 +2,7 @@ import Foundation
 import SnapgridCore
 
 enum CLI {
-    static let version = "0.3.1"
+    static let version = "0.4.0"
 
     static let usage = """
     snapgrid \(version) — Divvy-style grid window placement with global shortcuts
